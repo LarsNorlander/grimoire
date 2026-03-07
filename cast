@@ -154,6 +154,10 @@ for arg in "$@"; do
         --recast) recast=true ;;
         --force) force=true ;;
         --accept) parsing_accept=true ;;
+        --help|-h)
+            sed -n '6,10p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
     esac
 done
 
