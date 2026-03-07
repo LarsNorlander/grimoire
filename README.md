@@ -19,7 +19,7 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 
 If cloned elsewhere (e.g. inside a workspace), `cast` creates a `~/.grimoire` symlink pointing to the repo.
 
-Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the machine profile.
+Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the machine profile. Use `cast --force` to overwrite externally modified tome files.
 
 ## Structure
 

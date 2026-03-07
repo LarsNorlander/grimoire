@@ -6,6 +6,7 @@
 # Usage:
 #   ./cast              # first run prompts for profile
 #   ./cast --recast     # re-prompt for profile
+#   ./cast --force      # overwrite externally modified tome files
 
 set -euo pipefail
 
@@ -107,7 +108,9 @@ build_configs() {
 
     for build_script in "$grimoire_root"/rites/*/build; do
         [ -x "$build_script" ] || continue
-        (cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$build_script" "$profile" "$grimoire_root")
+        force_flag=""
+        if [ "$force" = true ]; then force_flag="--force"; fi
+        (cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$build_script" "$profile" "$grimoire_root" $force_flag)
     done
 
     echo ""
@@ -141,9 +144,11 @@ create_symlinks() {
 # --- Main ---
 
 recast=false
+force=false
 for arg in "$@"; do
     case "$arg" in
         --recast) recast=true ;;
+        --force) force=true ;;
     esac
 done
 

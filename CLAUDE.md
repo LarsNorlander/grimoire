@@ -40,6 +40,7 @@ Personal machine configuration and scripts, portable across work and personal Ma
 - Config merging: base files are the complete personal config; overlay files add to it. Arrays concatenate, dicts merge recursively.
 - Scripts follow the shebang convention — no file extensions, `chmod +x`
 - All symlinks point to `tome/` (gitignored), never to source files — protects tracked files from tools that auto-modify their config
+- A manifest (`tome/.manifest`) tracks content hashes of built files. If a tome file is externally modified, `cast` warns and skips it. Use `--force` to overwrite.
 
 ## Key Files
 

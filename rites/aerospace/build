@@ -52,8 +52,4 @@ if ctx.profile == "work":
     if work_d_entries:
         merge_service_d(doc["mode"]["service"]["binding"], work_d_entries)
 
-ctx.tome_dir.mkdir(parents=True, exist_ok=True)
-with open(ctx.tome_dir / "aerospace.toml", "w") as f:
-    tomlkit.dump(doc, f)
-
-print(f"  built tome/aerospace/aerospace.toml ({ctx.profile})")
+ctx.write("aerospace.toml", tomlkit.dumps(doc))
