@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+from arcana.tome import BuildContext
+
+ctx = BuildContext.from_args()
+ctx.copy("config.yml")

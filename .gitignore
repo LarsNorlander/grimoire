@@ -1,2 +1,3 @@
 tome/
 .venv/
+__pycache__/
