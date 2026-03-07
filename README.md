@@ -27,8 +27,8 @@ Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the mac
 grimoire/
 ├── cast                    # deployment orchestrator
 ├── pyproject.toml          # Python dependencies (managed by uv)
-├── spells/                 # config sources (per tool)
-│   ├── arcana/             # shared build library
+├── arcana/                 # shared build library
+├── rites/                 # config sources (per tool)
 │   ├── aerospace/
 │   │   ├── build           # merges base + work overlay
 │   │   ├── base.toml       # shared config (all machines)
@@ -38,14 +38,14 @@ grimoire/
 │   ├── ccstatusline/
 │   ├── gh-dash/
 │   └── zed/
-├── scripts/                # standalone scripts
+├── cantrips/                # standalone scripts
 │   └── resize-window-pct
 └── tome/                   # built configs (gitignored)
 ```
 
 ## How It Works
 
-Each tool under `spells/` has its own `build` script. `cast` runs them all with the active profile (`work` or `personal`). Built configs land in `tome/` (gitignored) and are symlinked to where each tool expects them.
+Each tool under `rites/` has its own `build` script. `cast` runs them all with the active profile (`work` or `personal`). Built configs land in `tome/` (gitignored) and are symlinked to where each tool expects them.
 
 For simple configs, the build script just copies the file. For tools like AeroSpace, the build script merges a base config with profile-specific overlays.
 

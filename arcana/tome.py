@@ -1,4 +1,4 @@
-"""Build context for grimoire spell scripts."""
+"""Build context for grimoire rite build scripts."""
 
 import shutil
 import sys
@@ -10,7 +10,7 @@ class BuildContext:
         self.profile = profile
         self.grimoire_root = grimoire_root
         self.tool = tool
-        self.spell_dir = grimoire_root / "spells" / tool
+        self.rite_dir = grimoire_root / "rites" / tool
         self.tome_dir = grimoire_root / "tome" / tool
 
     @classmethod
@@ -23,5 +23,5 @@ class BuildContext:
     def copy(self, *files: str) -> None:
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         for filename in files:
-            shutil.copy2(self.spell_dir / filename, self.tome_dir / filename)
+            shutil.copy2(self.rite_dir / filename, self.tome_dir / filename)
             print(f"  built tome/{self.tool}/{filename}")

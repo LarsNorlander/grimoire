@@ -105,9 +105,9 @@ read_or_prompt_profile() {
 build_configs() {
     echo "Building configs..."
 
-    for build_script in "$grimoire_root"/spells/*/build; do
+    for build_script in "$grimoire_root"/rites/*/build; do
         [ -x "$build_script" ] || continue
-        (cd "$grimoire_root" && PYTHONPATH="$grimoire_root/spells" uv run "$build_script" "$profile" "$grimoire_root")
+        (cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$build_script" "$profile" "$grimoire_root")
     done
 
     echo ""
