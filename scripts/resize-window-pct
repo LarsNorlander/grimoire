@@ -1,0 +1,44 @@
+#!/usr/bin/env osascript -l JavaScript
+
+ObjC.import('AppKit')
+
+function run(argv) {
+    if (argv.length < 1) {
+        throw new Error('Usage: resize-window-pct <percent>')
+    }
+
+    var pct = parseInt(argv[0], 10)
+    if (isNaN(pct) || pct < 1 || pct > 100) {
+        throw new Error('Percent must be between 1 and 100')
+    }
+
+    // Get focused monitor's visible frame width (excludes menu bar and dock)
+    var visibleWidth = $.NSScreen.mainScreen.visibleFrame.size.width
+
+    // Read outer gaps from aerospace config
+    var outerLeft = 8
+    var outerRight = 8
+    try {
+        var configPath = $.NSString.stringWithString(
+            '~/.aerospace.toml'
+        ).stringByExpandingTildeInPath.js
+        var config = $.NSString.stringWithContentsOfFileEncodingError(
+            configPath, $.NSUTF8StringEncoding, null
+        ).js
+
+        var leftMatch = config.match(/outer\.left\s*=\s*(\d+)/)
+        if (leftMatch) outerLeft = parseInt(leftMatch[1], 10)
+
+        var rightMatch = config.match(/outer\.right\s*=\s*(\d+)/)
+        if (rightMatch) outerRight = parseInt(rightMatch[1], 10)
+    } catch (e) {
+        // Fall back to defaults if config can't be read
+    }
+
+    var referenceWidth = visibleWidth - outerLeft - outerRight
+    var target = Math.round(referenceWidth * pct / 100)
+
+    var app = Application.currentApplication()
+    app.includeStandardAdditions = true
+    app.doShellScript('/opt/homebrew/bin/aerospace resize width ' + target)
+}
