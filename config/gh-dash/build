@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Copies config.yml to tome/gh-dash/."""
+
+import shutil
+import sys
+from pathlib import Path
+
+grimoire_root = Path(sys.argv[2])
+src = grimoire_root / "config" / "gh-dash" / "config.yml"
+dst = grimoire_root / "tome" / "gh-dash"
+dst.mkdir(parents=True, exist_ok=True)
+shutil.copy2(src, dst / "config.yml")
+print("  built tome/gh-dash/config.yml")

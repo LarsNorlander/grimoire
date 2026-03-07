@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Copies settings.json to tome/ccstatusline/."""
+
+import shutil
+import sys
+from pathlib import Path
+
+grimoire_root = Path(sys.argv[2])
+src = grimoire_root / "config" / "ccstatusline" / "settings.json"
+dst = grimoire_root / "tome" / "ccstatusline"
+dst.mkdir(parents=True, exist_ok=True)
+shutil.copy2(src, dst / "settings.json")
+print("  built tome/ccstatusline/settings.json")

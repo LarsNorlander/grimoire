@@ -125,11 +125,15 @@ create_symlinks() {
         link_path "$grimoire_root" "$HOME/.grimoire"
     fi
 
-    # Aerospace config
+    # Home directory configs
     link_path "$grimoire_root/tome/aerospace.toml" "$HOME/.aerospace.toml"
+    link_path "$grimoire_root/tome/git/gitconfig" "$HOME/.gitconfig"
 
-    # Git config
-    link_path "$grimoire_root/config/git/gitconfig" "$HOME/.gitconfig"
+    # ~/.config/ configs
+    link_path "$grimoire_root/tome/starship/starship.toml" "$HOME/.config/starship.toml"
+    link_path "$grimoire_root/tome/ccstatusline/settings.json" "$HOME/.config/ccstatusline/settings.json"
+    link_path "$grimoire_root/tome/gh-dash/config.yml" "$HOME/.config/gh-dash/config.yml"
+    link_path "$grimoire_root/tome/zed/settings.json" "$HOME/.config/zed/settings.json"
 
     echo ""
 }
