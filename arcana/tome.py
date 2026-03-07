@@ -1,5 +1,6 @@
 """Build context for grimoire rite build scripts."""
 
+import atexit
 import hashlib
 import shutil
 import sys
@@ -41,6 +42,7 @@ class BuildContext:
         self.tome_dir = grimoire_root / "tome" / tool
         self._tome_root = grimoire_root / "tome"
         self._manifest = _load_manifest(self._tome_root)
+        self._dirty = False
 
     @classmethod
     def from_args(cls) -> "BuildContext":
@@ -65,7 +67,9 @@ class BuildContext:
     def _update_manifest(self, filename: str) -> None:
         key = self._manifest_key(filename)
         self._manifest[key] = _hash_file(self.tome_dir / filename)
-        _save_manifest(self._tome_root, self._manifest)
+        if not self._dirty:
+            self._dirty = True
+            atexit.register(_save_manifest, self._tome_root, self._manifest)
 
     def copy(self, *files: str) -> None:
         self.tome_dir.mkdir(parents=True, exist_ok=True)
@@ -85,3 +89,17 @@ class BuildContext:
         (self.tome_dir / filename).write_text(content)
         self._update_manifest(filename)
         print(f"  built tome/{self.tool}/{filename}")
+
+    def link(self, filename: str, target: str) -> None:
+        source = self.tome_dir / filename
+        dest = Path(target).expanduser()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.is_symlink():
+            dest.unlink()
+            print(f"  updated {dest} -> {source}")
+        elif dest.exists():
+            print(f"  ERROR: {dest} already exists and is not a symlink — skipping")
+            return
+        else:
+            print(f"  created {dest} -> {source}")
+        dest.symlink_to(source)

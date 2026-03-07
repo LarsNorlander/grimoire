@@ -2,4 +2,5 @@
 from arcana.tome import BuildContext
 
 ctx = BuildContext.from_args()
-ctx.copy("starship.toml")
+ctx.copy("settings.json")
+ctx.link("settings.json", "~/.config/ccstatusline/settings.json")

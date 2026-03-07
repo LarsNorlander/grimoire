@@ -2,4 +2,5 @@
 from arcana.tome import BuildContext
 
 ctx = BuildContext.from_args()
-ctx.copy("settings.json")
+ctx.copy("config.yml")
+ctx.link("config.yml", "~/.config/gh-dash/config.yml")

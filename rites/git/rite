@@ -3,3 +3,4 @@ from arcana.tome import BuildContext
 
 ctx = BuildContext.from_args()
 ctx.copy("gitconfig")
+ctx.link("gitconfig", "~/.gitconfig")

@@ -53,3 +53,4 @@ if ctx.profile == "work":
         merge_service_d(doc["mode"]["service"]["binding"], work_d_entries)
 
 ctx.write("aerospace.toml", tomlkit.dumps(doc))
+ctx.link("aerospace.toml", "~/.aerospace.toml")

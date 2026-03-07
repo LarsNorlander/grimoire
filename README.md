@@ -19,7 +19,7 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 
 If cloned elsewhere (e.g. inside a workspace), `cast` creates a `~/.grimoire` symlink pointing to the repo.
 
-Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the machine profile. Use `cast --force` to overwrite externally modified tome files.
+Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the machine profile. Use `cast --force` to overwrite externally modified tome files, or `cast --accept <tool>` to pull changes back into rite sources.
 
 ## Structure
 
@@ -30,7 +30,7 @@ grimoire/
 ├── arcana/                 # shared build library
 ├── rites/                 # config sources (per tool)
 │   ├── aerospace/
-│   │   ├── build           # merges base + work overlay
+│   │   ├── rite            # merges base + work overlay
 │   │   ├── base.toml       # shared config (all machines)
 │   │   └── work.toml       # work-only overlay
 │   ├── git/
@@ -45,8 +45,8 @@ grimoire/
 
 ## How It Works
 
-Each tool under `rites/` has its own `build` script. `cast` runs them all with the active profile (`work` or `personal`). Built configs land in `tome/` (gitignored) and are symlinked to where each tool expects them.
+Each tool under `rites/` has its own `rite` script. `cast` runs them all with the active profile (`work` or `personal`). Built configs land in `tome/` (gitignored) and are symlinked to where each tool expects them.
 
-For simple configs, the build script just copies the file. For tools like AeroSpace, the build script merges a base config with profile-specific overlays.
+For simple configs, the rite script just copies the file. For tools like AeroSpace, the rite script merges a base config with profile-specific overlays.
 
 Symlinks always point to `tome/`, so tools that auto-modify their config write to the gitignored copy — tracked source files stay clean.
