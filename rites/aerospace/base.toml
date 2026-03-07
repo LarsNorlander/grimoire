@@ -106,6 +106,9 @@ on-mode-changed = []
     cmd-h = []
     cmd-alt-h = []
 
+    # Screenshot to clipboard only
+    alt-shift-s = ['exec-and-forget screencapture -ic']
+
     # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
     alt-shift-1 = ['move-node-to-workspace Workbench', 'workspace Workbench']
     alt-shift-2 = ['move-node-to-workspace Project', 'workspace Project']
