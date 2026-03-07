@@ -31,26 +31,29 @@ def merge_service_d(base_binding, work_d_entries):
     base_binding["d"] = merged
 
 
+def build_aerospace(*, profile, rite_dir, **_):
+    with open(rite_dir / "base.toml") as f:
+        doc = tomlkit.load(f)
+
+    if profile == "work":
+        with open(rite_dir / "work.toml") as f:
+            overlay = tomlkit.load(f)
+
+        work_d_entries = None
+        if "mode" in overlay:
+            service_binding = overlay.get("mode", {}).get("service", {}).get("binding", {})
+            if "d" in service_binding:
+                work_d_entries = list(service_binding["d"])
+                del service_binding["d"]
+
+        merge_into_table(doc, overlay)
+
+        if work_d_entries:
+            merge_service_d(doc["mode"]["service"]["binding"], work_d_entries)
+
+    return tomlkit.dumps(doc)
+
+
 ctx = RiteContext.from_args()
-
-with open(ctx.rite_dir / "base.toml") as f:
-    doc = tomlkit.load(f)
-
-if ctx.profile == "work":
-    with open(ctx.rite_dir / "work.toml") as f:
-        overlay = tomlkit.load(f)
-
-    work_d_entries = None
-    if "mode" in overlay:
-        service_binding = overlay.get("mode", {}).get("service", {}).get("binding", {})
-        if "d" in service_binding:
-            work_d_entries = list(service_binding["d"])
-            del service_binding["d"]
-
-    merge_into_table(doc, overlay)
-
-    if work_d_entries:
-        merge_service_d(doc["mode"]["service"]["binding"], work_d_entries)
-
-ctx.write("aerospace.toml", tomlkit.dumps(doc))
+ctx.write("aerospace.toml", build_aerospace)
 ctx.link("aerospace.toml", "~/.aerospace.toml")

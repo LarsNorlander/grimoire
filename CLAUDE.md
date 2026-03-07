@@ -7,7 +7,7 @@ Personal machine configuration and scripts, portable across work and personal Ma
 Three layers with strict responsibilities:
 
 - **`arcana/`** — pure library code, no entry points. Provides `RiteContext` which is mode-aware: the same rite script works in build mode and accept mode because the context changes behavior, not the script.
-- **`rites/*/rite`** — each rite is a self-contained executable that declares what files it manages (`copy()`, `write()`, `link()`). A rite knows its own tool's files and how to handle them. New modes are handled by `RiteContext`, not by changing rite scripts.
+- **`rites/*/rite`** — each rite is a self-contained executable that manages its tool's files using `RiteContext` operations. A single rite can mix `copy()` (source files in the rite dir) and `write()` (generated content) — the distinction is per-file, not per-rite. Arbitrary Python logic (merging, templating) can happen between calls. New modes are handled by `RiteContext`, not by changing rite scripts.
 - **`cast`** — orchestrator only. Handles prerequisites, profile, and dispatches to rite scripts with the right flags. If `cast` needs a separate script to do something, the responsibility is probably in the wrong place — it should be in the rite or in arcana.
 
 `cast` orchestrates the full deployment:
@@ -36,7 +36,17 @@ Three layers with strict responsibilities:
    ctx.copy("filename")
    ctx.link("filename", "~/.config/tool/filename")
    ```
-3. For configs with profile-dependent merging, use `ctx.profile` and `ctx.rite_dir` to load and merge sources, then `ctx.write()` and `ctx.link()`
+3. For generated configs, pass a builder function to `ctx.write()`:
+   ```python
+   def build_config(*, profile, rite_dir, **_):
+       # load, merge, template — return content as string
+       return result
+
+   ctx = RiteContext.from_args()
+   ctx.write("config.toml", build_config)
+   ctx.link("config.toml", "~/.config/tool/config.toml")
+   ```
+   The builder receives `profile`, `rite_dir`, and `grimoire_root` as kwargs. It is never called in accept mode.
 
 ## Conventions
 
@@ -46,7 +56,7 @@ Three layers with strict responsibilities:
 - Config merging: base files are the complete personal config; overlay files add to it. Arrays concatenate, dicts merge recursively.
 - Scripts follow the shebang convention — no file extensions, `chmod +x`
 - All symlinks point to `tome/` (gitignored), never to source files — protects tracked files from tools that auto-modify their config
-- A manifest (`tome/.manifest`) tracks content hashes of built files. If a tome file is externally modified, `cast` warns and skips it. Use `--force` to overwrite, or `--accept <tool>` to copy changes back into rite sources (copy-based rites only).
+- A manifest (`tome/.manifest`) tracks content hashes of built files. If a tome file is externally modified, `cast` warns and skips it. Use `--force` to overwrite, or `--accept <tool>` to copy changes back into rite sources. Accept only round-trips `copy()`-managed files — `write()`-managed files warn that they need manual reconciliation.
 
 ## Key Files
 

@@ -87,10 +87,12 @@ class RiteContext:
             self._update_manifest(filename)
             print(f"  built tome/{self.tool}/{filename}")
 
-    def write(self, filename: str, content: str) -> None:
+    def write(self, filename, content) -> None:
         if self.accepting:
             print(f"  WARNING {self.tool}/{filename} — generated file, needs manual reconciliation")
             return
+        if callable(content):
+            content = content(profile=self.profile, rite_dir=self.rite_dir, grimoire_root=self.grimoire_root)
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         if not self.force and self._is_externally_modified(filename):
             print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
