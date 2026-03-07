@@ -157,11 +157,18 @@ for arg in "$@"; do
     esac
 done
 
-# Accept mode: standalone action, then exit
+# Accept mode: run targeted rite scripts with --accept, then exit
 if [ "${#accept_targets[@]}" -gt 0 ]; then
     ensure_prerequisites
     echo "Accepting external changes..."
-    run_arcana arcana/accept.py "$grimoire_root" "${accept_targets[@]}"
+    for target in "${accept_targets[@]}"; do
+        rite_script="$grimoire_root/rites/$target/rite"
+        if [ ! -x "$rite_script" ]; then
+            echo "  ERROR: no rite found for '$target'" >&2
+            exit 1
+        fi
+        run_arcana "$rite_script" "" "$grimoire_root" --accept
+    done
     echo ""
     echo "Done."
     exit 0

@@ -3,7 +3,7 @@
 
 import tomlkit
 
-from arcana.tome import BuildContext
+from arcana.tome import RiteContext
 
 
 def merge_into_table(base_table, overlay_table):
@@ -31,7 +31,7 @@ def merge_service_d(base_binding, work_d_entries):
     base_binding["d"] = merged
 
 
-ctx = BuildContext.from_args()
+ctx = RiteContext.from_args()
 
 with open(ctx.rite_dir / "base.toml") as f:
     doc = tomlkit.load(f)

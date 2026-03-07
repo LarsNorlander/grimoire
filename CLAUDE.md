@@ -4,7 +4,13 @@ Personal machine configuration and scripts, portable across work and personal Ma
 
 ## Architecture
 
-`cast` is the entry point. It orchestrates the full deployment:
+Three layers with strict responsibilities:
+
+- **`arcana/`** — pure library code, no entry points. Provides `RiteContext` which is mode-aware: the same rite script works in build mode and accept mode because the context changes behavior, not the script.
+- **`rites/*/rite`** — each rite is a self-contained executable that declares what files it manages (`copy()`, `write()`, `link()`). A rite knows its own tool's files and how to handle them. New modes are handled by `RiteContext`, not by changing rite scripts.
+- **`cast`** — orchestrator only. Handles prerequisites, profile, and dispatches to rite scripts with the right flags. If `cast` needs a separate script to do something, the responsibility is probably in the wrong place — it should be in the rite or in arcana.
+
+`cast` orchestrates the full deployment:
 
 1. **Prerequisites** — ensures Homebrew and uv are installed
 2. **Profile** — prompts for `work` or `personal` on first run, stores in `~/.grimoire-profile`
@@ -13,7 +19,7 @@ Personal machine configuration and scripts, portable across work and personal Ma
 
 ## Directory Layout
 
-- `arcana/` — shared Python library for rite scripts. Provides `BuildContext` for args parsing, paths, and common operations like copying files to tome.
+- `arcana/` — pure Python library for rite scripts. No executables — only imported by rites.
 - `rites/<tool>/` — source files and a `rite` script per tool. The rite script receives `<profile> <grimoire_root>` as args, writes to `tome/`, and creates symlinks via `ctx.link()`.
 - `cantrips/` — standalone executable scripts. Available at `~/.grimoire/cantrips/` after cast.
 - `tome/` — gitignored. Contains built config files ready for symlinking.
@@ -25,8 +31,8 @@ Personal machine configuration and scripts, portable across work and personal Ma
 2. For simple copy configs:
    ```python
    #!/usr/bin/env python3
-   from arcana.tome import BuildContext
-   ctx = BuildContext.from_args()
+   from arcana.tome import RiteContext
+   ctx = RiteContext.from_args()
    ctx.copy("filename")
    ctx.link("filename", "~/.config/tool/filename")
    ```
@@ -48,7 +54,7 @@ Personal machine configuration and scripts, portable across work and personal Ma
 |---|---|
 | `cast` | Deployment orchestrator (bash) |
 | `pyproject.toml` | uv project config, declares Python dependencies |
-| `arcana/tome.py` | Shared `BuildContext` class for rite scripts |
+| `arcana/tome.py` | Shared `RiteContext` class for rite scripts |
 | `rites/aerospace/rite` | Merges base.toml + work.toml → tome/aerospace/aerospace.toml |
 | `rites/aerospace/base.toml` | Shared AeroSpace config (all profiles) |
 | `rites/aerospace/work.toml` | Work-only overlay (Dia, Slack, Notion workspaces) |

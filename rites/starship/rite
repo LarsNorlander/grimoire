@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from arcana.tome import BuildContext
+from arcana.tome import RiteContext
 
-ctx = BuildContext.from_args()
+ctx = RiteContext.from_args()
 ctx.copy("starship.toml")
 ctx.link("starship.toml", "~/.config/starship.toml")

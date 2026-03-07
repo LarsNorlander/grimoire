@@ -1,4 +1,4 @@
-"""Build context for grimoire rite build scripts."""
+"""Context for grimoire rite scripts (build and accept modes)."""
 
 import atexit
 import hashlib
@@ -32,12 +32,14 @@ def _save_manifest(tome_root: Path, entries: dict[str, str]) -> None:
     manifest_path.write_text("\n".join(lines) + "\n")
 
 
-class BuildContext:
-    def __init__(self, profile: str, grimoire_root: Path, tool: str, force: bool = False):
+class RiteContext:
+    def __init__(self, profile: str, grimoire_root: Path, tool: str,
+                 force: bool = False, accepting: bool = False):
         self.profile = profile
         self.grimoire_root = grimoire_root
         self.tool = tool
         self.force = force
+        self.accepting = accepting
         self.rite_dir = grimoire_root / "rites" / tool
         self.tome_dir = grimoire_root / "tome" / tool
         self._tome_root = grimoire_root / "tome"
@@ -45,12 +47,13 @@ class BuildContext:
         self._dirty = False
 
     @classmethod
-    def from_args(cls) -> "BuildContext":
+    def from_args(cls) -> "RiteContext":
         profile = sys.argv[1]
         grimoire_root = Path(sys.argv[2])
-        force = len(sys.argv) > 3 and sys.argv[3] == "--force"
+        force = "--force" in sys.argv[3:]
+        accepting = "--accept" in sys.argv[3:]
         tool = Path(sys.argv[0]).resolve().parent.name
-        return cls(profile, grimoire_root, tool, force)
+        return cls(profile, grimoire_root, tool, force, accepting)
 
     def _manifest_key(self, filename: str) -> str:
         return f"{self.tool}/{filename}"
@@ -72,6 +75,9 @@ class BuildContext:
             atexit.register(_save_manifest, self._tome_root, self._manifest)
 
     def copy(self, *files: str) -> None:
+        if self.accepting:
+            self._accept(*files)
+            return
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         for filename in files:
             if not self.force and self._is_externally_modified(filename):
@@ -82,6 +88,9 @@ class BuildContext:
             print(f"  built tome/{self.tool}/{filename}")
 
     def write(self, filename: str, content: str) -> None:
+        if self.accepting:
+            print(f"  WARNING {self.tool}/{filename} — generated file, needs manual reconciliation")
+            return
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         if not self.force and self._is_externally_modified(filename):
             print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
@@ -90,7 +99,22 @@ class BuildContext:
         self._update_manifest(filename)
         print(f"  built tome/{self.tool}/{filename}")
 
+    def _accept(self, *files: str) -> None:
+        for filename in files:
+            if not self._is_externally_modified(filename):
+                print(f"  {self.tool}/{filename}: not modified — skipping")
+                continue
+            rite_file = self.rite_dir / filename
+            if not rite_file.exists():
+                print(f"  {self.tool}/{filename}: no matching source — needs manual reconciliation")
+                continue
+            shutil.copy2(self.tome_dir / filename, rite_file)
+            self._update_manifest(filename)
+            print(f"  accepted {self.tool}/{filename}")
+
     def link(self, filename: str, target: str) -> None:
+        if self.accepting:
+            return
         source = self.tome_dir / filename
         dest = Path(target).expanduser()
         dest.parent.mkdir(parents=True, exist_ok=True)
