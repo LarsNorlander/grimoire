@@ -238,12 +238,12 @@ on-mode-changed = []
     comma = 'layout accordion horizontal vertical'
 
     # resize
-    2 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 25']
-    3 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 33.33']
-    4 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 45']
-    5 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 50']
-    6 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 66.67']
-    7 = ['exec-and-forget /Users/larsnorlander/Workbench/scripts/resize-window-pct 75']
+    2 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 25']
+    3 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 33.33']
+    4 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 45']
+    5 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 50']
+    6 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 66.67']
+    7 = ['exec-and-forget $HOME/.grimoire/scripts/resize-window-pct 75']
     0 = ['balance-sizes']
 
     # reset layout

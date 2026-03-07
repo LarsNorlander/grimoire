@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Deploys grimoire onto the current machine.
+# Creates symlinks from well-known paths to grimoire's contents.
+#
+# Usage:
+#   ./cast
+
+set -euo pipefail
+
+grimoire_root="$(cd "$(dirname "$0")" && pwd)"
+
+link_dir() {
+    local target="$1"
+    local link="$2"
+
+    if [ -L "$link" ]; then
+        rm "$link"
+        echo "  updated $link -> $target"
+    elif [ -e "$link" ]; then
+        echo "  ERROR: $link already exists and is not a symlink — skipping" >&2
+        return 1
+    else
+        echo "  created $link -> $target"
+    fi
+
+    ln -s "$target" "$link"
+}
+
+echo "Casting grimoire from $grimoire_root"
+echo ""
+
+link_dir "$grimoire_root" "$HOME/.grimoire"
