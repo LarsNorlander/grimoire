@@ -1,0 +1,48 @@
+# Font
+font-family = JetBrainsMono NF
+font-size = 14
+font-feature = calt
+font-feature = liga
+
+# Colors — cyanotype charcoal scheme
+background = #1f2022
+foreground = #f7f8fa
+cursor-color = #f7f8fa
+
+palette = 0=#1f2022
+palette = 1=#ff4d65
+palette = 2=#00ffb3
+palette = 3=#ffde00
+palette = 4=#478cff
+palette = 5=#bea6fd
+palette = 6=#00e1ff
+palette = 7=#d7dbe4
+palette = 8=#43474f
+palette = 9=#fba3b0
+palette = 10=#7cfcd7
+palette = 11=#fbeb7d
+palette = 12=#89b4fd
+palette = 13=#dacffb
+palette = 14=#7cedfd
+palette = 15=#f7f8fa
+
+# Window
+macos-titlebar-style = hidden
+window-padding-x = 12
+window-padding-y = 12
+window-padding-color = extend
+window-padding-balance = true
+
+# Cursor
+cursor-style = bar
+cursor-style-blink = false
+
+# Splits
+split-divider-color = #373A40
+focus-follows-mouse = true
+
+# Behavior
+copy-on-select = true
+mouse-hide-while-typing = true
+confirm-close-surface = false
+shell-integration-features = no-title
