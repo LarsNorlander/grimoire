@@ -1,0 +1,19 @@
+[user]
+	name = Lars Norlander
+	email = lars.nrlndr@gmail.com
+
+[alias]
+	co = checkout
+	br = branch
+	ci = commit
+	st = status
+	unstage = reset HEAD --
+	last = log -1 HEAD
+	ds = diff --staged
+	dm = diff master
+	dd = diff develop
+
+[core]
+	editor = nvim
+[url "git@github.com:"]
+	insteadOf = https://github.com/

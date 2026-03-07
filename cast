@@ -128,6 +128,9 @@ create_symlinks() {
     # Aerospace config
     link_path "$grimoire_root/tome/aerospace.toml" "$HOME/.aerospace.toml"
 
+    # Git config
+    link_path "$grimoire_root/config/git/gitconfig" "$HOME/.gitconfig"
+
     echo ""
 }
 
