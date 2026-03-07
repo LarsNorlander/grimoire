@@ -30,4 +30,8 @@ link_dir() {
 echo "Casting grimoire from $grimoire_root"
 echo ""
 
-link_dir "$grimoire_root" "$HOME/.grimoire"
+if [ "$grimoire_root" = "$HOME/.grimoire" ]; then
+    echo "Running from ~/.grimoire — no symlink needed."
+else
+    link_dir "$grimoire_root" "$HOME/.grimoire"
+fi
