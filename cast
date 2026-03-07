@@ -1,16 +1,30 @@
 #!/usr/bin/env bash
 #
 # Deploys grimoire onto the current machine.
-# Creates symlinks from well-known paths to grimoire's contents.
+# Ensures prerequisites, builds configs, and creates symlinks.
 #
 # Usage:
-#   ./cast
+#   ./cast              # first run prompts for profile
+#   ./cast --recast     # re-prompt for profile
 
 set -euo pipefail
 
 grimoire_root="$(cd "$(dirname "$0")" && pwd)"
+profile_file="$HOME/.grimoire-profile"
 
-link_dir() {
+# --- Helpers ---
+
+confirm() {
+    local prompt="$1"
+    printf "%s [y/N] " "$prompt"
+    read -r answer
+    case "$answer" in
+        [yY]*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+link_path() {
     local target="$1"
     local link="$2"
 
@@ -27,11 +41,111 @@ link_dir() {
     ln -s "$target" "$link"
 }
 
+# --- Prerequisites ---
+
+ensure_prerequisites() {
+    echo "Checking prerequisites..."
+
+    # Homebrew
+    if ! command -v brew &>/dev/null; then
+        echo "  Homebrew not found."
+        if confirm "  Install Homebrew?"; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        else
+            echo "  Homebrew is required. Aborting." >&2
+            exit 1
+        fi
+    else
+        echo "  Homebrew: ok"
+    fi
+
+    # uv
+    if ! command -v uv &>/dev/null; then
+        echo "  uv not found."
+        if confirm "  Install uv via brew?"; then
+            brew install uv
+        else
+            echo "  uv is required. Aborting." >&2
+            exit 1
+        fi
+    else
+        echo "  uv: ok"
+    fi
+
+    # Sync venv + dependencies
+    echo "  Syncing dependencies..."
+    (cd "$grimoire_root" && uv sync --quiet)
+    echo "  Dependencies: ok"
+
+    echo ""
+}
+
+# --- Profile ---
+
+read_or_prompt_profile() {
+    if [ -f "$profile_file" ] && [ "$recast" = false ]; then
+        profile="$(cat "$profile_file")"
+        echo "Profile: $profile (from $profile_file)"
+    else
+        printf "Is this a work machine? [y/N] "
+        read -r answer
+        case "$answer" in
+            [yY]*) profile="work" ;;
+            *) profile="personal" ;;
+        esac
+        echo "$profile" > "$profile_file"
+        echo "Profile: $profile (saved to $profile_file)"
+    fi
+
+    echo ""
+}
+
+# --- Build ---
+
+build_configs() {
+    echo "Building configs..."
+
+    for build_script in "$grimoire_root"/config/*/build; do
+        [ -x "$build_script" ] || continue
+        (cd "$grimoire_root" && uv run "$build_script" "$profile" "$grimoire_root")
+    done
+
+    echo ""
+}
+
+# --- Symlinks ---
+
+create_symlinks() {
+    echo "Creating symlinks..."
+
+    # Grimoire root
+    if [ "$grimoire_root" = "$HOME/.grimoire" ]; then
+        echo "  ~/.grimoire: running from home — no symlink needed"
+    else
+        link_path "$grimoire_root" "$HOME/.grimoire"
+    fi
+
+    # Aerospace config
+    link_path "$grimoire_root/tome/aerospace.toml" "$HOME/.aerospace.toml"
+
+    echo ""
+}
+
+# --- Main ---
+
+recast=false
+for arg in "$@"; do
+    case "$arg" in
+        --recast) recast=true ;;
+    esac
+done
+
 echo "Casting grimoire from $grimoire_root"
 echo ""
 
-if [ "$grimoire_root" = "$HOME/.grimoire" ]; then
-    echo "Running from ~/.grimoire — no symlink needed."
-else
-    link_dir "$grimoire_root" "$HOME/.grimoire"
-fi
+ensure_prerequisites
+read_or_prompt_profile
+build_configs
+create_symlinks
+
+echo "Done."

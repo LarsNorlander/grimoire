@@ -1,0 +1,18 @@
+persistent-workspaces = ["Dia", "Slack", "Notion"]
+
+[mode.main.binding]
+    alt-4 = 'workspace Dia'
+    alt-5 = 'workspace Slack'
+    alt-8 = 'workspace Notion'
+    alt-shift-4 = ['move-node-to-workspace Dia', 'workspace Dia']
+    alt-shift-5 = ['move-node-to-workspace Slack', 'workspace Slack']
+    alt-shift-8 = ['move-node-to-workspace Notion', 'workspace Notion']
+
+[mode.service.binding]
+    # Entries to insert into 'd' before the exit commands
+    d = [
+        'move-workspace-to-monitor --workspace Dia secondary',
+        'move-workspace-to-monitor --workspace Slack secondary',
+        'move-workspace-to-monitor --workspace Notion secondary',
+        'workspace Dia',
+    ]
