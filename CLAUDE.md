@@ -84,7 +84,8 @@ Before committing, always check that no secrets, credentials, tokens, API keys, 
 
 | File | Purpose |
 |---|---|
-| `cast` | Deployment orchestrator (bash) |
+| `cast` | Bash bootstrap: sources nix, delegates to `arcana/cli.py` |
+| `arcana/cli.py` | Python CLI: profile, runes, prerequisites, rites dispatch |
 | `pyproject.toml` | uv project config, declares Python dependencies |
 | `arcana/tome.py` | Shared `RiteContext` class for rite scripts |
 | `runes/flake.nix` | Nix flake entrypoint (personal + work outputs) |

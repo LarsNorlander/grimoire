@@ -24,13 +24,13 @@ Re-run `cast` any time to rebuild configs.
 
 - `cast --recast` — change the machine profile
 - `cast --force` — overwrite externally modified tome files
-- `cast --accept <tool>` — pull external changes back into rite sources
+- `cast --accept <tool> [--accept <tool2> ...]` — pull external changes back into rite sources
 
 ## Structure
 
 ```
 grimoire/
-├── cast                    # deployment orchestrator (bash)
+├── cast                    # Bash bootstrap: sources nix, delegates to Python CLI
 ├── pyproject.toml          # Python dependencies (managed by uv)
 ├── arcana/                 # shared build library (RiteContext)
 ├── runes/                  # nix-darwin system config
@@ -45,7 +45,8 @@ grimoire/
 │   ├── starship/
 │   ├── zed/
 │   ├── ccstatusline/
-│   └── gh-dash/
+│   ├── gh-dash/
+│   └── zsh/
 ├── cantrips/               # standalone utility scripts
 │   └── resize-window-pct
 └── tome/                   # built configs (gitignored)
@@ -72,6 +73,7 @@ grimoire/
 | Zed | Editor settings |
 | Claude Code statusline | Status bar settings |
 | gh-dash | GitHub dashboard config (work only) |
+| zsh | `~/.zshrc` (PATH, fpath, compinit); generated `_cast` zsh completion |
 
 Profile (`work`/`personal`) applies at both layers: nix-darwin loads the right flake output, and rites load profile-specific overlays.
 
@@ -81,7 +83,7 @@ Grimoire has three layers, each with a single job:
 
 - **`arcana/`** — a pure Python library. Provides `RiteContext`, which is the only API rite scripts need. The context is *mode-aware*: the same rite script works in build mode and accept mode because the context changes behavior, not the script. Rites never branch on mode.
 - **`rites/*/rite`** — one self-contained executable per tool. Each rite describes *what* to build and where to link it, using two operations: `copy()` for static files and `write()` for generated content. A single rite can mix both — the distinction is per-file, not per-rite.
-- **`cast`** — the orchestrator. Handles bootstrapping (Nix, uv, profile selection) and dispatches to every rite with the right flags. It doesn't know what any tool's config looks like.
+- **`cast`** — the orchestrator. A thin bash bootstrap (Nix, symlink, first-run runes) that hands off to a Python CLI (`arcana/cli.py`) for profile selection, rune application, prerequisite sync, and rite dispatch. It doesn't know what any tool's config looks like.
 
 ### `copy()` vs `write()`
 
@@ -120,7 +122,7 @@ Symlinks always point to `tome/` (gitignored), so tools that auto-modify their c
 A manifest (`tome/.manifest`) tracks content hashes of every built file. If a tome file is externally modified, `cast` warns and skips it instead of silently overwriting your changes. From there:
 
 - `cast --force` — overwrite and rebuild from source
-- `cast --accept <tool>` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
+- `cast --accept <tool> [--accept <tool2> ...]` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
 
 ## Adding a New Config
 

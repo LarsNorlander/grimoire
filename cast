@@ -1,218 +1,66 @@
 #!/usr/bin/env bash
 #
 # Deploys grimoire onto the current machine.
-# Ensures prerequisites, resolves profile, links ~/.grimoire, and builds rites.
-#
-# Usage:
-#   ./cast              # first run prompts for profile; installs nix if needed
-#   ./cast --recast     # re-prompt for profile
-#   ./cast --force      # overwrite externally modified tome files
-#   ./cast --accept git  # accept external changes back into rite sources
+# Bash handles first-run bootstrap; Python CLI handles everything else.
 
 set -euo pipefail
 
 grimoire_root="$(cd "$(dirname "$0")" && pwd)"
-profile_file="$HOME/.grimoire-profile"
 
-# --- Helpers ---
+# 1. Source Nix daemon profile
+nix_profile=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+[ -f "$nix_profile" ] && . "$nix_profile"
 
-confirm() {
-    local prompt="$1"
-    printf "%s [y/N] " "$prompt"
+# 2. Install Nix if missing
+if ! command -v nix &>/dev/null; then
+    echo "  nix not found."
+    printf "  Install nix (Determinate Systems)? [y/N] "
     read -r answer
     case "$answer" in
-        [yY]*) return 0 ;;
-        *) return 1 ;;
+        [yY]*)
+            curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+            . "$nix_profile"
+            ;;
+        *)
+            echo "  nix is required. Aborting." >&2
+            exit 1
+            ;;
     esac
-}
+fi
 
-run_arcana() {
-    (cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$@")
-}
-
-# --- Nix ---
-
-ensure_nix() {
-    local nix_profile=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-    if [ -f "$nix_profile" ]; then
-        # shellcheck source=/dev/null
-        . "$nix_profile"
-    fi
-
-    if command -v nix &>/dev/null; then
-        echo "  nix: ok"
-        return
-    fi
-
-    echo "  nix not found."
-    if confirm "  Install nix (Determinate Systems)?"; then
-        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
-            | sh -s -- install
-        . "$nix_profile"
+# 3. Create ~/.grimoire symlink (ensures Python CLI can always rely on it)
+link="$HOME/.grimoire"
+if [ "$grimoire_root" != "$link" ]; then
+    if [ -L "$link" ] && [ "$(readlink "$link")" = "$grimoire_root" ]; then
+        : # already correct
+    elif [ -L "$link" ]; then
+        rm "$link"
+        ln -s "$grimoire_root" "$link"
+        echo "  updated $link -> $grimoire_root"
+    elif [ ! -e "$link" ]; then
+        ln -s "$grimoire_root" "$link"
+        echo "  created $link -> $grimoire_root"
     else
-        echo "  nix is required. Aborting." >&2
-        exit 1
+        echo "  WARNING: $link exists and is not a symlink — skipping" >&2
     fi
-}
+fi
 
-# --- Prerequisites ---
-
-ensure_prerequisites() {
-    local venv_dir="$grimoire_root/.venv"
-    local lock_file="$grimoire_root/uv.lock"
-
-    # Fast path: everything already set up and lock hasn't changed
-    if command -v uv &>/dev/null \
-        && [ -d "$venv_dir" ] && [ -f "$lock_file" ] \
-        && [ ! "$lock_file" -nt "$venv_dir" ]; then
-        return
-    fi
-
-    echo "Checking prerequisites..."
-
-    if ! command -v uv &>/dev/null; then
-        echo "  ERROR: uv not found — should be installed by nix-darwin." >&2
-        exit 1
-    else
-        echo "  uv: ok"
-    fi
-
-    echo "  Syncing dependencies..."
-    (cd "$grimoire_root" && uv sync --quiet)
-    touch "$venv_dir"
-    echo "  Dependencies: ok"
-
-    echo ""
-}
-
-# --- Profile ---
-
-read_or_prompt_profile() {
-    if [ -f "$profile_file" ] && [ "$recast" = false ]; then
-        profile="$(cat "$profile_file")"
-        echo "Profile: $profile (from $profile_file)"
-    else
+# 4. First-run bootstrap: apply runes if uv not yet installed
+if ! command -v uv &>/dev/null; then
+    profile_file="$HOME/.grimoire-profile"
+    if [ ! -f "$profile_file" ]; then
         printf "Is this a work machine? [y/N] "
         read -r answer
-        case "$answer" in
-            [yY]*) profile="work" ;;
-            *) profile="personal" ;;
-        esac
-        echo "$profile" > "$profile_file"
-        echo "Profile: $profile (saved to $profile_file)"
+        case "$answer" in [yY]*) echo "work" ;; *) echo "personal" ;; esac > "$profile_file"
     fi
-
-    echo ""
-}
-
-# --- Grimoire root ---
-
-link_grimoire_root() {
-    if [ "$grimoire_root" = "$HOME/.grimoire" ]; then
-        return
-    fi
-
-    local link="$HOME/.grimoire"
-    if [ -L "$link" ] && [ "$(readlink "$link")" = "$grimoire_root" ]; then
-        return
-    fi
-
-    if [ -L "$link" ]; then
-        rm "$link"
-        echo "  updated $link -> $grimoire_root"
-    elif [ -e "$link" ]; then
-        echo "  ERROR: $link already exists and is not a symlink — skipping" >&2
-        return 1
-    else
-        echo "  created $link -> $grimoire_root"
-    fi
-    ln -s "$grimoire_root" "$link"
-
-    echo ""
-}
-
-# --- Runes ---
-
-apply_runes() {
-    echo "Applying runes ($profile)..."
-
-    local flake="$grimoire_root/runes#$profile"
-
+    flake="$grimoire_root/runes#$(cat "$profile_file")"
     if command -v darwin-rebuild &>/dev/null; then
         sudo darwin-rebuild switch --flake "$flake"
     else
         sudo nix run nix-darwin -- switch --flake "$flake"
     fi
-
-    # Make nix-darwin managed binaries available in this session
     export PATH="/run/current-system/sw/bin:$PATH"
-
-    echo ""
-}
-
-# --- Build ---
-
-build_rites() {
-    echo "Building rites..."
-
-    force_flag=""
-    if [ "$force" = true ]; then force_flag="--force"; fi
-
-    for build_script in "$grimoire_root"/rites/*/rite; do
-        [ -x "$build_script" ] || continue
-        run_arcana "$build_script" "$profile" "$grimoire_root" $force_flag
-    done
-
-    echo ""
-}
-
-# --- Main ---
-
-recast=false
-force=false
-accept_targets=()
-parsing_accept=false
-for arg in "$@"; do
-    if [ "$parsing_accept" = true ]; then
-        accept_targets+=("$arg")
-        continue
-    fi
-    case "$arg" in
-        --recast) recast=true ;;
-        --force) force=true ;;
-        --accept) parsing_accept=true ;;
-        --help|-h)
-            sed -n '6,10p' "$0" | sed 's/^# \{0,1\}//'
-            exit 0
-            ;;
-    esac
-done
-
-# Accept mode: run targeted rite scripts with --accept, then exit
-if [ "${#accept_targets[@]}" -gt 0 ]; then
-    ensure_prerequisites
-    echo "Accepting external changes..."
-    for target in "${accept_targets[@]}"; do
-        rite_script="$grimoire_root/rites/$target/rite"
-        if [ ! -x "$rite_script" ]; then
-            echo "  ERROR: no rite found for '$target'" >&2
-            exit 1
-        fi
-        run_arcana "$rite_script" "" "$grimoire_root" --accept
-    done
-    echo ""
-    echo "Done."
-    exit 0
 fi
 
-echo "Casting grimoire from $grimoire_root"
-echo ""
-
-ensure_nix
-read_or_prompt_profile
-link_grimoire_root
-apply_runes
-ensure_prerequisites
-build_rites
-
-echo "Done."
+# 5. Hand off to Python
+exec uv run --project "$grimoire_root" python -m arcana.cli "$@"
