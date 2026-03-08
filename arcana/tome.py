@@ -55,6 +55,13 @@ class RiteContext:
         tool = Path(sys.argv[0]).resolve().parent.name
         return cls(profile, grimoire_root, tool, force, accepting)
 
+    def require_profile(self, *profiles: str) -> None:
+        """Exit cleanly if current profile is not in the required set."""
+        if self.accepting or self.profile in profiles:
+            return
+        print(f"  skipped {self.tool} — requires {'/'.join(profiles)} profile")
+        sys.exit(0)
+
     def _manifest_key(self, filename: str) -> str:
         return f"{self.tool}/{filename}"
 

@@ -2,5 +2,6 @@
 from arcana.tome import RiteContext
 
 ctx = RiteContext.from_args()
+ctx.require_profile("work")
 ctx.copy("config.yml")
 ctx.link("config.yml", "~/.config/gh-dash/config.yml")

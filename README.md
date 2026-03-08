@@ -71,7 +71,7 @@ grimoire/
 | Starship | Prompt modules |
 | Zed | Editor settings |
 | Claude Code statusline | Status bar settings |
-| gh-dash | GitHub dashboard config |
+| gh-dash | GitHub dashboard config (work only) |
 
 Profile (`work`/`personal`) applies at both layers: nix-darwin loads the right flake output, and rites load profile-specific overlays.
 
