@@ -63,4 +63,4 @@ if ! command -v uv &>/dev/null; then
 fi
 
 # 5. Hand off to Python
-exec uv run --project "$grimoire_root" python -m arcana.cli "$@"
+exec env PYTHONPATH="$grimoire_root" uv run --project "$grimoire_root" python -m arcana.cli "$@"
