@@ -1,6 +1,7 @@
 [user]
 	name = Lars Norlander
 	email = lars.nrlndr@gmail.com
+	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBXoFaQ8cfJvcD+e76x8A4ak1vbN+TFHHaJHCq0mQcO
 
 [alias]
 	co = checkout
@@ -10,10 +11,18 @@
 	unstage = reset HEAD --
 	last = log -1 HEAD
 	ds = diff --staged
-	dm = diff master
+	dm = diff main
 	dd = diff develop
 
 [core]
 	editor = nvim
+
 [url "git@github.com:"]
 	insteadOf = https://github.com/
+
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+[commit]
+	gpgsign = true
