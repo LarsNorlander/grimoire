@@ -24,8 +24,8 @@ def merge_into_table(base_table, overlay_table):
 def merge_service_d(base_binding, work_d_entries):
     """Insert work 'd' entries before the trailing exit commands."""
     current = base_binding["d"]
-    body = list(current[:-2])
-    tail = list(current[-2:])
+    body = list(current[:-1])
+    tail = list(current[-1:])
     merged = tomlkit.array(body + list(work_d_entries) + tail)
     merged.multiline(True)
     base_binding["d"] = merged
@@ -35,21 +35,22 @@ def build_aerospace(*, profile, rite_dir, **_):
     with open(rite_dir / "base.toml") as f:
         doc = tomlkit.load(f)
 
-    if profile == "work":
-        with open(rite_dir / "work.toml") as f:
+    overlay_file = {"work": "work.toml", "personal": "personal.toml"}.get(profile)
+    if overlay_file:
+        with open(rite_dir / overlay_file) as f:
             overlay = tomlkit.load(f)
 
-        work_d_entries = None
+        profile_d_entries = None
         if "mode" in overlay:
             service_binding = overlay.get("mode", {}).get("service", {}).get("binding", {})
             if "d" in service_binding:
-                work_d_entries = list(service_binding["d"])
+                profile_d_entries = list(service_binding["d"])
                 del service_binding["d"]
 
         merge_into_table(doc, overlay)
 
-        if work_d_entries:
-            merge_service_d(doc["mode"]["service"]["binding"], work_d_entries)
+        if profile_d_entries:
+            merge_service_d(doc["mode"]["service"]["binding"], profile_d_entries)
 
     return tomlkit.dumps(doc)
 

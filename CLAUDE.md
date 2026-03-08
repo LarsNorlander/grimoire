@@ -91,6 +91,7 @@ Before committing, always check that no secrets, credentials, tokens, API keys, 
 | `runes/configuration.nix` | Shared nix-darwin base (packages, casks, fonts, macOS defaults) |
 | `runes/personal.nix` | Personal profile overlay (julia via Homebrew) |
 | `runes/work.nix` | Work profile overlay (awscli2, gh, golangci-lint, jq, kubectl via Nix; mysql-client via Homebrew; typora via cask) |
-| `rites/aerospace/rite` | Merges base.toml + work.toml → tome/aerospace/aerospace.toml |
+| `rites/aerospace/rite` | Merges base.toml + profile overlay → tome/aerospace/aerospace.toml |
 | `rites/aerospace/base.toml` | Shared AeroSpace config (all profiles) |
 | `rites/aerospace/work.toml` | Work-only overlay (Dia, Slack, Notion workspaces) |
+| `rites/aerospace/personal.toml` | Personal-only overlay (Chrome on alt-4, Discord on alt-5) |

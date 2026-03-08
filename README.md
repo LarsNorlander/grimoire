@@ -39,7 +39,7 @@ grimoire/
 │   ├── personal.nix        # personal profile overlay
 │   └── work.nix            # work profile overlay
 ├── rites/                  # dotfile sources (per tool)
-│   ├── aerospace/          # merges base + work overlay
+│   ├── aerospace/          # merges base + profile overlay
 │   ├── git/
 │   ├── ghostty/
 │   ├── starship/
@@ -93,14 +93,15 @@ ctx.copy("starship.toml")
 ctx.link("starship.toml", "~/.config/starship.toml")
 ```
 
-**`write()`** takes a builder function for configs that need merging, templating, or any other transformation. The AeroSpace rite uses this to merge a base config with a work-specific overlay via tomlkit:
+**`write()`** takes a builder function for configs that need merging, templating, or any other transformation. The AeroSpace rite uses this to merge a base config with a profile-specific overlay via tomlkit:
 
 ```python
 def build_aerospace(*, profile, rite_dir, **_):
     with open(rite_dir / "base.toml") as f:
         doc = tomlkit.load(f)
-    if profile == "work":
-        with open(rite_dir / "work.toml") as f:
+    overlay_file = {"work": "work.toml", "personal": "personal.toml"}.get(profile)
+    if overlay_file:
+        with open(rite_dir / overlay_file) as f:
             overlay = tomlkit.load(f)
         merge_into_table(doc, overlay)
     return tomlkit.dumps(doc)
