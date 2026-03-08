@@ -15,6 +15,10 @@
     starship     # prompt (binary here, config via rite)
   ];
 
+  fonts.packages = with pkgs; [
+    nerd-fonts.jetbrains-mono
+  ];
+
   # Homebrew — owns GUI apps and casks
   homebrew = {
     enable = true;
