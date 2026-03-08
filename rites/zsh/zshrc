@@ -1,4 +1,4 @@
-# Managed by grimoire — do not edit directly; use: cast --accept zsh
+# Managed by grimoire — do not edit directly; use: grimoire cast --accept zsh
 
 export ZSH="$HOME/.oh-my-zsh"
 export ZSH_CUSTOM="$HOME/.config/zsh/custom"

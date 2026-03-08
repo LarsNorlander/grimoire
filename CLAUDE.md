@@ -8,9 +8,9 @@ Three layers with strict responsibilities:
 
 - **`arcana/`** — pure library code, no entry points. Provides `RiteContext` which is mode-aware: the same rite script works in build mode and accept mode because the context changes behavior, not the script.
 - **`rites/*/rite`** — each rite is a self-contained executable that manages its tool's files using `RiteContext` operations. A single rite can mix `copy()` (source files in the rite dir) and `write()` (generated content) — the distinction is per-file, not per-rite. Arbitrary Python logic (merging, templating) can happen between calls. New modes are handled by `RiteContext`, not by changing rite scripts.
-- **`cast`** — orchestrator only. Handles prerequisites, profile, and dispatches to rite scripts with the right flags. If `cast` needs a separate script to do something, the responsibility is probably in the wrong place — it should be in the rite or in arcana.
+- **`grimoire`** — orchestrator only. Handles prerequisites, profile, and dispatches to rite scripts with the right flags. If `grimoire` needs a separate script to do something, the responsibility is probably in the wrong place — it should be in the rite or in arcana.
 
-`cast` orchestrates the full deployment:
+`grimoire cast` orchestrates the full deployment:
 
 1. **Nix** — ensures Nix (Determinate) is installed, sources the daemon profile
 2. **Profile** — prompts for `work` or `personal` on first run, stores in `~/.grimoire-profile` (`--recast` re-prompts)
@@ -26,7 +26,7 @@ Flags: `--recast` (re-prompt profile), `--force` (overwrite externally modified 
 - `arcana/` — pure Python library for rite scripts. No executables — only imported by rites.
 - `runes/` — nix-darwin system configuration. `flake.nix` defines personal and work outputs; `configuration.nix` is the shared base; `personal.nix` and `work.nix` are profile overlays.
 - `rites/<tool>/` — source files and a `rite` script per tool. The rite script receives `<profile> <grimoire_root>` as args, writes to `tome/`, and creates symlinks via `ctx.link()`.
-- `cantrips/` — standalone executable scripts. Available at `~/.grimoire/cantrips/` after cast.
+- `cantrips/` — standalone executable scripts. Available at `~/.grimoire/cantrips/` after `grimoire cast`.
 - `tome/` — gitignored. Contains built config files ready for symlinking.
 - `.venv/` — gitignored. Managed by uv from `pyproject.toml`.
 
@@ -58,11 +58,11 @@ Flags: `--recast` (re-prompt profile), `--force` (overwrite externally modified 
 
 ## README Consistency
 
-After any structural change (adding/removing rites, cantrips, runes packages, cast flags, or altering how cast works), read `README.md` and verify these sections still match reality:
+After any structural change (adding/removing rites, cantrips, runes packages, `grimoire cast` flags, or altering how `grimoire cast` works), read `README.md` and verify these sections still match reality:
 - The directory structure tree
 - The rites table in "What Gets Managed"
 - Profile-specific package lists (Nix packages, Homebrew formulae, casks)
-- Cast step descriptions and flags
+- `grimoire cast` step descriptions and flags
 Fix any inconsistencies before committing.
 
 ## Commit Safety
@@ -72,19 +72,19 @@ Before committing, always check that no secrets, credentials, tokens, API keys, 
 ## Conventions
 
 - Python `>=3.14`, with `tomlkit` as the only external dependency (declared in `pyproject.toml`)
-- Rite scripts are Python, invoked via the `run_arcana` helper in `cast`: `(cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$@")`
-- `cast` is bash — it handles system-level bootstrapping before Python is available
+- Rite scripts are Python, invoked via the `run_arcana` helper in `grimoire`: `(cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$@")`
+- `grimoire` is bash — it handles system-level bootstrapping before Python is available
 - Profiles: `work` adds work-specific config (e.g. extra AeroSpace workspaces), `personal` is the base
 - Config merging: base files are the complete personal config; overlay files add to it. Arrays concatenate, dicts merge recursively.
 - Scripts follow the shebang convention — no file extensions, `chmod +x`
 - All symlinks point to `tome/` (gitignored), never to source files — protects tracked files from tools that auto-modify their config
-- A manifest (`tome/.manifest`) tracks content hashes of built files. If a tome file is externally modified, `cast` warns and skips it. Use `--force` to overwrite, or `--accept <tool>` to copy changes back into rite sources. Accept only round-trips `copy()`-managed files — `write()`-managed files warn that they need manual reconciliation.
+- A manifest (`tome/.manifest`) tracks content hashes of built files. If a tome file is externally modified, `grimoire cast` warns and skips it. Use `--force` to overwrite, or `--accept <tool>` to copy changes back into rite sources. Accept only round-trips `copy()`-managed files — `write()`-managed files warn that they need manual reconciliation.
 
 ## Key Files
 
 | File | Purpose |
 |---|---|
-| `cast` | Bash bootstrap: sources nix, delegates to `arcana/cli.py` |
+| `grimoire` | Bash bootstrap: sources nix, delegates to `arcana/cli.py` |
 | `arcana/cli.py` | Python CLI: profile, runes, prerequisites, rites dispatch |
 | `pyproject.toml` | uv project config, declares Python dependencies |
 | `arcana/tome.py` | Shared `RiteContext` class for rite scripts |

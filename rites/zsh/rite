@@ -6,10 +6,10 @@ from pathlib import Path
 from arcana.tome import RiteContext
 
 
-def build_cast_completion(*, grimoire_root, **_):
+def build_grimoire_completion(*, grimoire_root, **_):
     result = subprocess.run(
         ["uv", "run", "python", "-m", "arcana.cli"],
-        env={**os.environ, "_CAST_COMPLETE": "zsh_source"},
+        env={**os.environ, "_GRIMOIRE_COMPLETE": "zsh_source"},
         capture_output=True,
         text=True,
         cwd=grimoire_root,
@@ -32,5 +32,5 @@ ctx.copy("zshrc")
 ctx.link("zshrc", "~/.zshrc")
 ctx.copy(f"{ctx.profile}.zsh")
 ctx.link(f"{ctx.profile}.zsh", "~/.config/zsh/profile.zsh")
-ctx.write("cast_completion", build_cast_completion)
-ctx.link("cast_completion", "~/.config/zsh/completions/_cast")
+ctx.write("grimoire_completion", build_grimoire_completion)
+ctx.link("grimoire_completion", "~/.config/zsh/completions/_grimoire")

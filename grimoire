@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploys grimoire onto the current machine.
+# Grimoire — personal machine configuration manager.
 # Bash handles first-run bootstrap; Python CLI handles everything else.
 
 set -euo pipefail

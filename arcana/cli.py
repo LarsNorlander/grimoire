@@ -72,11 +72,17 @@ def _build_rites(profile: str, force: bool) -> None:
     click.echo()
 
 
-@click.command()
+@click.group()
+def grimoire():
+    """Grimoire — personal machine configuration manager."""
+    pass
+
+
+@grimoire.command()
 @click.option("--recast", is_flag=True, help="Re-prompt for machine profile.")
 @click.option("--force", is_flag=True, help="Overwrite externally modified tome files.")
 @click.option("--accept", multiple=True, metavar="TOOL", help="Accept external changes back into rite sources.")
-def main(recast: bool, force: bool, accept: tuple[str, ...]) -> None:
+def cast(recast: bool, force: bool, accept: tuple[str, ...]) -> None:
     """Deploy grimoire onto the current machine."""
     if accept:
         _ensure_prerequisites()
@@ -99,4 +105,4 @@ def main(recast: bool, force: bool, accept: tuple[str, ...]) -> None:
 
 
 if __name__ == "__main__":
-    main(prog_name="cast")
+    grimoire(prog_name="grimoire")
