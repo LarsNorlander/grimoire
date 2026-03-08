@@ -13,18 +13,16 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 
 `grimoire cast` will:
 1. Verify/install Nix (Determinate) if missing
-2. Ask whether this is a work or personal machine (stored in `~/.grimoire-profile`)
-3. Apply nix-darwin config (`darwin-rebuild switch`) — installs packages, Homebrew apps, macOS defaults
-4. Sync Python venv (`uv sync`)
-5. Build rite configs into `tome/` and symlink into place
-
-If cloned elsewhere (e.g. inside a workspace), `grimoire cast` creates a `~/.grimoire` symlink pointing to the repo before proceeding.
+2. Link `~/.grimoire` to the repo (if cloned elsewhere)
+3. Ask whether this is a work or personal machine (stored in `~/.grimoire-profile`)
+4. Apply nix-darwin config (`darwin-rebuild switch`) — installs packages, Homebrew apps, macOS defaults
+5. Sync Python venv (`uv sync`)
+6. Build rite configs into `tome/` and symlink into place
 
 Re-run `grimoire cast` any time to rebuild configs.
 
 - `grimoire cast --recast` — change the machine profile
-- `grimoire cast --force` — overwrite externally modified tome files
-- `grimoire cast --accept <tool> [--accept <tool2> ...]` — pull external changes back into rite sources
+- `grimoire cast --force` / `--accept <tool>` — see [Drift detection](#drift-detection) below
 
 ## Structure
 
@@ -32,7 +30,7 @@ Re-run `grimoire cast` any time to rebuild configs.
 grimoire/
 ├── grimoire                # Bash bootstrap: sources nix, delegates to Python CLI
 ├── pyproject.toml          # Python dependencies (managed by uv)
-├── arcana/                 # shared build library (RiteContext)
+├── arcana/                 # Python library (RiteContext) + CLI entry point (cli.py)
 ├── runes/                  # nix-darwin system config
 │   ├── flake.nix           # flake entrypoint (personal + work outputs)
 │   ├── configuration.nix   # shared base (packages, Homebrew, macOS defaults)
@@ -51,31 +49,6 @@ grimoire/
 │   └── resize-window-pct
 └── tome/                   # built configs (gitignored)
 ```
-
-## What Gets Managed
-
-**System layer (`runes/` — nix-darwin):**
-- CLI tools via Nix: `uv`, `bat`, `btop`, `fastfetch`, `go`, `neovim`, `nodejs`, `starship`
-- GUI apps via Homebrew casks: AeroSpace, Ghostty, 1Password CLI, Scroll Reverser
-- Fonts via Nix: JetBrainsMono Nerd Font
-- macOS system defaults: dark mode, dock position, minimize effect
-- Personal profile adds: `julia`
-- Work profile adds: `awscli2`, `gh`, `golangci-lint`, `jq`, `kubectl`, `mysql-client` (Nix); Typora (Homebrew cask)
-
-**Config layer (`rites/` — grimoire rites):**
-
-| Tool | What's configured |
-|---|---|
-| AeroSpace | Workspaces, keybindings (work adds extra workspaces) |
-| Git | User config, aliases |
-| Ghostty | Font, colors, keybindings |
-| Starship | Prompt modules |
-| Zed | Editor settings |
-| Claude Code statusline | Status bar settings |
-| gh-dash | GitHub dashboard config (work only) |
-| zsh | `~/.zshrc` (PATH, fpath, compinit); `~/.config/zsh/profile.zsh` (profile-specific extras); generated `_grimoire` zsh completion |
-
-Profile (`work`/`personal`) applies at both layers: nix-darwin loads the right flake output, and rites load profile-specific overlays.
 
 ## How It Works
 
@@ -126,35 +99,7 @@ A manifest (`tome/.manifest`) tracks content hashes of every built file. If a to
 
 ## Adding a New Config
 
-Create `rites/<tool>/` with your source files and a `rite` script (`chmod +x`).
-
-**Static file** — copy and link:
-
-```python
-#!/usr/bin/env python3
-from arcana.tome import RiteContext
-
-ctx = RiteContext.from_args()
-ctx.copy("config.toml")
-ctx.link("config.toml", "~/.config/tool/config.toml")
-```
-
-**Generated file** — use a builder:
-
-```python
-#!/usr/bin/env python3
-from arcana.tome import RiteContext
-
-def build_config(*, profile, rite_dir, **_):
-    # load, merge, template — return content as a string
-    return result
-
-ctx = RiteContext.from_args()
-ctx.write("config.toml", build_config)
-ctx.link("config.toml", "~/.config/tool/config.toml")
-```
-
-That's it. `grimoire cast` discovers the new rite automatically on the next run.
+Create `rites/<tool>/` with your source files and a `rite` script (`chmod +x`). Use `copy()` for static files or `write()` with a builder for generated ones (see [How It Works](#how-it-works) above). `grimoire cast` discovers the new rite automatically on the next run.
 
 ## Secrets
 
