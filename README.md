@@ -1,6 +1,6 @@
 # Grimoire
 
-Personal Mac configuration — what's installed and how tools are configured, portable across work and personal machines.
+Personal Mac configuration — what's installed and how tools are configured, portable across work and personal machines. (The fantasy naming is intentional: "rites" are config scripts, "runes" are Nix packages, "tome" is the build output, and `cast` ties it all together.)
 
 ## Install
 
@@ -14,14 +14,17 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 `cast` will:
 1. Verify/install Nix (Determinate) if missing
 2. Ask whether this is a work or personal machine (stored in `~/.grimoire-profile`)
-3. Ensure `~/.grimoire` symlink exists
-4. Apply nix-darwin config (`darwin-rebuild switch`) — installs packages, Homebrew apps, macOS defaults
-5. Sync Python venv (`uv sync`)
-6. Build rite configs into `tome/` and symlink into place
+3. Apply nix-darwin config (`darwin-rebuild switch`) — installs packages, Homebrew apps, macOS defaults
+4. Sync Python venv (`uv sync`)
+5. Build rite configs into `tome/` and symlink into place
 
-If cloned elsewhere (e.g. inside a workspace), `cast` creates a `~/.grimoire` symlink pointing to the repo.
+If cloned elsewhere (e.g. inside a workspace), `cast` creates a `~/.grimoire` symlink pointing to the repo before proceeding.
 
-Re-run `cast` any time to rebuild configs. Use `cast --recast` to change the machine profile. Use `cast --force` to overwrite externally modified tome files, or `cast --accept <tool>` to pull changes back into rite sources.
+Re-run `cast` any time to rebuild configs.
+
+- `cast --recast` — change the machine profile
+- `cast --force` — overwrite externally modified tome files
+- `cast --accept <tool>` — pull external changes back into rite sources
 
 ## Structure
 
@@ -51,10 +54,12 @@ grimoire/
 ## What Gets Managed
 
 **System layer (`runes/` — nix-darwin):**
-- CLI tools via Nix: `uv`, `bat`, `btop`, `fastfetch`, `neovim`, `nodejs`, `starship`
+- CLI tools via Nix: `uv`, `bat`, `btop`, `fastfetch`, `go`, `neovim`, `nodejs`, `starship`
 - GUI apps via Homebrew casks: AeroSpace, Ghostty, 1Password CLI, Scroll Reverser
-- Homebrew formulae: julia
+- Fonts via Nix: JetBrainsMono Nerd Font
 - macOS system defaults: dark mode, dock position, minimize effect
+- Personal profile adds: `julia`
+- Work profile adds: `awscli2`, `gh`, `golangci-lint`, `jq`, `kubectl`, `mysql-client` (Nix); Typora (Homebrew cask)
 
 **Config layer (`rites/` — grimoire rites):**
 
@@ -65,15 +70,93 @@ grimoire/
 | Ghostty | Font, colors, keybindings |
 | Starship | Prompt modules |
 | Zed | Editor settings |
-| CCStatusline | Status bar settings |
+| Claude Code statusline | Status bar settings |
 | gh-dash | GitHub dashboard config |
+
+Profile (`work`/`personal`) applies at both layers: nix-darwin loads the right flake output, and rites load profile-specific overlays.
 
 ## How It Works
 
-Each tool under `rites/` has a `rite` script. `cast` runs them all with the active profile (`work` or `personal`). Built configs land in `tome/` (gitignored) and are symlinked to where each tool expects them.
+Grimoire has three layers, each with a single job:
 
-For simple configs, the rite copies the file. For tools like AeroSpace, the rite merges a base config with a profile-specific overlay.
+- **`arcana/`** — a pure Python library. Provides `RiteContext`, which is the only API rite scripts need. The context is *mode-aware*: the same rite script works in build mode and accept mode because the context changes behavior, not the script. Rites never branch on mode.
+- **`rites/*/rite`** — one self-contained executable per tool. Each rite describes *what* to build and where to link it, using two operations: `copy()` for static files and `write()` for generated content. A single rite can mix both — the distinction is per-file, not per-rite.
+- **`cast`** — the orchestrator. Handles bootstrapping (Nix, uv, profile selection) and dispatches to every rite with the right flags. It doesn't know what any tool's config looks like.
 
-Symlinks always point to `tome/`, so tools that auto-modify their config write to the gitignored copy — tracked source files stay clean. A manifest tracks content hashes; if a file is externally modified, `cast` warns before overwriting.
+### `copy()` vs `write()`
 
-Profile (`work`/`personal`) is applied at both layers: nix-darwin loads the right flake output, rites load profile-specific overlays.
+**`copy()`** is for files you edit directly. The Starship rite is the simplest example — it's the entire script:
+
+```python
+ctx = RiteContext.from_args()
+ctx.copy("starship.toml")
+ctx.link("starship.toml", "~/.config/starship.toml")
+```
+
+**`write()`** takes a builder function for configs that need merging, templating, or any other transformation. The AeroSpace rite uses this to merge a base config with a work-specific overlay via tomlkit:
+
+```python
+def build_aerospace(*, profile, rite_dir, **_):
+    with open(rite_dir / "base.toml") as f:
+        doc = tomlkit.load(f)
+    if profile == "work":
+        with open(rite_dir / "work.toml") as f:
+            overlay = tomlkit.load(f)
+        merge_into_table(doc, overlay)
+    return tomlkit.dumps(doc)
+
+ctx = RiteContext.from_args()
+ctx.write("aerospace.toml", build_aerospace)
+ctx.link("aerospace.toml", "~/.aerospace.toml")
+```
+
+The builder receives `profile`, `rite_dir`, and `grimoire_root` as kwargs — enough to load files and make profile-aware decisions.
+
+### Drift detection
+
+Symlinks always point to `tome/` (gitignored), so tools that auto-modify their config write to the build copy — tracked source files stay clean.
+
+A manifest (`tome/.manifest`) tracks content hashes of every built file. If a tome file is externally modified, `cast` warns and skips it instead of silently overwriting your changes. From there:
+
+- `cast --force` — overwrite and rebuild from source
+- `cast --accept <tool>` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
+
+## Adding a New Config
+
+Create `rites/<tool>/` with your source files and a `rite` script (`chmod +x`).
+
+**Static file** — copy and link:
+
+```python
+#!/usr/bin/env python3
+from arcana.tome import RiteContext
+
+ctx = RiteContext.from_args()
+ctx.copy("config.toml")
+ctx.link("config.toml", "~/.config/tool/config.toml")
+```
+
+**Generated file** — use a builder:
+
+```python
+#!/usr/bin/env python3
+from arcana.tome import RiteContext
+
+def build_config(*, profile, rite_dir, **_):
+    # load, merge, template — return content as a string
+    return result
+
+ctx = RiteContext.from_args()
+ctx.write("config.toml", build_config)
+ctx.link("config.toml", "~/.config/tool/config.toml")
+```
+
+That's it. `cast` discovers the new rite automatically on the next run.
+
+## Secrets
+
+Secrets are managed through [1Password](https://1password.com/) and its CLI (`op`). Nothing sensitive is stored in this repo — credentials, tokens, and keys are referenced from 1Password at runtime.
+
+## Built with Claude Code
+
+This repo is maintained with the help of [Claude Code](https://claude.com/claude-code).

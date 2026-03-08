@@ -12,14 +12,19 @@ Three layers with strict responsibilities:
 
 `cast` orchestrates the full deployment:
 
-1. **Prerequisites** — ensures Homebrew and uv are installed
-2. **Profile** — prompts for `work` or `personal` on first run, stores in `~/.grimoire-profile`
+1. **Nix** — ensures Nix (Determinate) is installed, sources the daemon profile
+2. **Profile** — prompts for `work` or `personal` on first run, stores in `~/.grimoire-profile` (`--recast` re-prompts)
 3. **Grimoire symlink** — links `~/.grimoire` to the repo (if not cloned there)
-4. **Rites** — runs each `rites/*/rite` script with the profile, outputting to `tome/` and symlinking to expected locations
+4. **Runes** — runs `darwin-rebuild switch` with the profile-appropriate flake output (installs packages, casks, fonts, macOS defaults)
+5. **Prerequisites** — ensures `uv` is available (installed by runes), syncs `.venv` from `pyproject.toml` if `uv.lock` is newer
+6. **Rites** — runs each `rites/*/rite` script with the profile, outputting to `tome/` and symlinking to expected locations
+
+Flags: `--recast` (re-prompt profile), `--force` (overwrite externally modified tome files), `--accept <tool>` (copy external changes back into rite sources), `--help`/`-h`.
 
 ## Directory Layout
 
 - `arcana/` — pure Python library for rite scripts. No executables — only imported by rites.
+- `runes/` — nix-darwin system configuration. `flake.nix` defines personal and work outputs; `configuration.nix` is the shared base; `personal.nix` and `work.nix` are profile overlays.
 - `rites/<tool>/` — source files and a `rite` script per tool. The rite script receives `<profile> <grimoire_root>` as args, writes to `tome/`, and creates symlinks via `ctx.link()`.
 - `cantrips/` — standalone executable scripts. Available at `~/.grimoire/cantrips/` after cast.
 - `tome/` — gitignored. Contains built config files ready for symlinking.
@@ -27,7 +32,7 @@ Three layers with strict responsibilities:
 
 ## Adding a New Config
 
-1. Create `rites/<tool>/` with source files and an executable `rite` script
+1. Create `rites/<tool>/` with source files and a `rite` script (must be `chmod +x`)
 2. For simple copy configs:
    ```python
    #!/usr/bin/env python3
@@ -47,10 +52,27 @@ Three layers with strict responsibilities:
    ctx.link("config.toml", "~/.config/tool/config.toml")
    ```
    The builder receives `profile`, `rite_dir`, and `grimoire_root` as kwargs. It is never called in accept mode.
+4. Update `README.md` — add the rite to the structure tree and the "What Gets Managed" rites table.
+
+**Accept mode note:** `--accept` only round-trips `copy()`-managed files (copies the tome file back into the rite source dir). For `write()`-managed files, accept warns and skips — you must manually reconcile generated content.
+
+## README Consistency
+
+After any structural change (adding/removing rites, cantrips, runes packages, cast flags, or altering how cast works), read `README.md` and verify these sections still match reality:
+- The directory structure tree
+- The rites table in "What Gets Managed"
+- Profile-specific package lists (Nix packages, Homebrew formulae, casks)
+- Cast step descriptions and flags
+Fix any inconsistencies before committing.
+
+## Commit Safety
+
+Before committing, always check that no secrets, credentials, tokens, API keys, or other sensitive data are included in the staged changes. This repo should never contain secrets — they belong in 1Password.
 
 ## Conventions
 
-- Rite scripts are Python, run via `uv run` with `PYTHONPATH` set to the grimoire root
+- Python `>=3.14`, with `tomlkit` as the only external dependency (declared in `pyproject.toml`)
+- Rite scripts are Python, invoked via the `run_arcana` helper in `cast`: `(cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$@")`
 - `cast` is bash — it handles system-level bootstrapping before Python is available
 - Profiles: `work` adds work-specific config (e.g. extra AeroSpace workspaces), `personal` is the base
 - Config merging: base files are the complete personal config; overlay files add to it. Arrays concatenate, dicts merge recursively.
@@ -65,6 +87,10 @@ Three layers with strict responsibilities:
 | `cast` | Deployment orchestrator (bash) |
 | `pyproject.toml` | uv project config, declares Python dependencies |
 | `arcana/tome.py` | Shared `RiteContext` class for rite scripts |
+| `runes/flake.nix` | Nix flake entrypoint (personal + work outputs) |
+| `runes/configuration.nix` | Shared nix-darwin base (packages, casks, fonts, macOS defaults) |
+| `runes/personal.nix` | Personal profile overlay (julia via Homebrew) |
+| `runes/work.nix` | Work profile overlay (awscli2, gh, golangci-lint, jq, kubectl via Nix; mysql-client via Homebrew; typora via cask) |
 | `rites/aerospace/rite` | Merges base.toml + work.toml → tome/aerospace/aerospace.toml |
 | `rites/aerospace/base.toml` | Shared AeroSpace config (all profiles) |
 | `rites/aerospace/work.toml` | Work-only overlay (Dia, Slack, Notion workspaces) |
