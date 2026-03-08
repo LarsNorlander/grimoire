@@ -73,7 +73,7 @@ grimoire/
 | Zed | Editor settings |
 | Claude Code statusline | Status bar settings |
 | gh-dash | GitHub dashboard config (work only) |
-| zsh | `~/.zshrc` (PATH, fpath, compinit); generated `_cast` zsh completion |
+| zsh | `~/.zshrc` (PATH, fpath, compinit); `~/.config/zsh/profile.zsh` (profile-specific extras); generated `_cast` zsh completion |
 
 Profile (`work`/`personal`) applies at both layers: nix-darwin loads the right flake output, and rites load profile-specific overlays.
 

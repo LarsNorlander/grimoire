@@ -1,0 +1,19 @@
+# Managed by grimoire — do not edit directly; use: cast --accept zsh
+
+export ZSH="$HOME/.oh-my-zsh"
+export ZSH_CUSTOM="$HOME/.config/zsh/custom"
+DISABLE_AUTO_UPDATE=true
+
+ZSH_THEME=""
+plugins=(git)
+
+export PATH="$HOME/.grimoire:$HOME/.grimoire/cantrips:$HOME/.local/bin:$PATH"
+
+# fpath extensions — must precede oh-my-zsh (which calls compinit internally)
+fpath=("$HOME/.config/zsh/completions" $fpath)
+[[ -f ~/.config/zsh/profile.zsh ]] && source ~/.config/zsh/profile.zsh
+
+source "$ZSH/oh-my-zsh.sh"
+
+# Starship — must follow oh-my-zsh to override PROMPT
+eval "$(starship init zsh)"

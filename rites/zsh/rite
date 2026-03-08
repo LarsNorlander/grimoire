@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+from pathlib import Path
+
+from arcana.tome import RiteContext
+
+
+def build_cast_completion(*, grimoire_root, **_):
+    result = subprocess.run(
+        ["uv", "run", "python", "-m", "arcana.cli"],
+        env={**os.environ, "_CAST_COMPLETE": "zsh_source"},
+        capture_output=True,
+        text=True,
+        cwd=grimoire_root,
+    )
+    result.check_returncode()
+    return result.stdout
+
+
+omz_dir = Path.home() / ".oh-my-zsh"
+if not omz_dir.exists():
+    subprocess.run(
+        ["sh", "-c",
+         "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+         " | sh -s - --unattended --keep-zshrc"],
+        check=True,
+    )
+
+ctx = RiteContext.from_args()
+ctx.copy("zshrc")
+ctx.link("zshrc", "~/.zshrc")
+ctx.copy(f"{ctx.profile}.zsh")
+ctx.link(f"{ctx.profile}.zsh", "~/.config/zsh/profile.zsh")
+ctx.write("cast_completion", build_cast_completion)
+ctx.link("cast_completion", "~/.config/zsh/completions/_cast")
