@@ -4,7 +4,7 @@
 # Ensures prerequisites, resolves profile, links ~/.grimoire, and builds rites.
 #
 # Usage:
-#   ./cast              # first run prompts for profile
+#   ./cast              # first run prompts for profile; installs nix if needed
 #   ./cast --recast     # re-prompt for profile
 #   ./cast --force      # overwrite externally modified tome files
 #   ./cast --accept git  # accept external changes back into rite sources
@@ -30,6 +30,31 @@ run_arcana() {
     (cd "$grimoire_root" && PYTHONPATH="$grimoire_root" uv run "$@")
 }
 
+# --- Nix ---
+
+ensure_nix() {
+    local nix_profile=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+    if [ -f "$nix_profile" ]; then
+        # shellcheck source=/dev/null
+        . "$nix_profile"
+    fi
+
+    if command -v nix &>/dev/null; then
+        echo "  nix: ok"
+        return
+    fi
+
+    echo "  nix not found."
+    if confirm "  Install nix (Determinate Systems)?"; then
+        curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
+            | sh -s -- install
+        . "$nix_profile"
+    else
+        echo "  nix is required. Aborting." >&2
+        exit 1
+    fi
+}
+
 # --- Prerequisites ---
 
 ensure_prerequisites() {
@@ -37,7 +62,7 @@ ensure_prerequisites() {
     local lock_file="$grimoire_root/uv.lock"
 
     # Fast path: everything already set up and lock hasn't changed
-    if command -v brew &>/dev/null && command -v uv &>/dev/null \
+    if command -v uv &>/dev/null \
         && [ -d "$venv_dir" ] && [ -f "$lock_file" ] \
         && [ ! "$lock_file" -nt "$venv_dir" ]; then
         return
@@ -45,26 +70,9 @@ ensure_prerequisites() {
 
     echo "Checking prerequisites..."
 
-    if ! command -v brew &>/dev/null; then
-        echo "  Homebrew not found."
-        if confirm "  Install Homebrew?"; then
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        else
-            echo "  Homebrew is required. Aborting." >&2
-            exit 1
-        fi
-    else
-        echo "  Homebrew: ok"
-    fi
-
     if ! command -v uv &>/dev/null; then
-        echo "  uv not found."
-        if confirm "  Install uv via brew?"; then
-            brew install uv
-        else
-            echo "  uv is required. Aborting." >&2
-            exit 1
-        fi
+        echo "  ERROR: uv not found — should be installed by nix-darwin." >&2
+        exit 1
     else
         echo "  uv: ok"
     fi
@@ -119,6 +127,25 @@ link_grimoire_root() {
         echo "  created $link -> $grimoire_root"
     fi
     ln -s "$grimoire_root" "$link"
+
+    echo ""
+}
+
+# --- Runes ---
+
+apply_runes() {
+    echo "Applying runes ($profile)..."
+
+    local flake="$grimoire_root/runes#$profile"
+
+    if command -v darwin-rebuild &>/dev/null; then
+        sudo darwin-rebuild switch --flake "$flake"
+    else
+        sudo nix run nix-darwin -- switch --flake "$flake"
+    fi
+
+    # Make nix-darwin managed binaries available in this session
+    export PATH="/run/current-system/sw/bin:$PATH"
 
     echo ""
 }
@@ -181,9 +208,11 @@ fi
 echo "Casting grimoire from $grimoire_root"
 echo ""
 
-ensure_prerequisites
+ensure_nix
 read_or_prompt_profile
 link_grimoire_root
+apply_runes
+ensure_prerequisites
 build_rites
 
 echo "Done."
