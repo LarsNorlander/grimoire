@@ -1,9 +1,17 @@
 { pkgs, ... }: {
   environment.systemPackages = with pkgs; [
-    # work-specific CLI tools
+    awscli2
+    gh
+    golangci-lint
+    jq
+    kubectl
+  ];
+
+  homebrew.brews = [
+    "mysql-client@8.4"
   ];
 
   homebrew.casks = [
-    # work-specific apps
+    "typora"
   ];
 }

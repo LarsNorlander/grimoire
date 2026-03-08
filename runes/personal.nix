@@ -1,3 +1,3 @@
 { ... }: {
-  # personal-specific additions
+  homebrew.brews = [ "julia" ];
 }

@@ -12,6 +12,7 @@
     fastfetch    # system info
     neovim
     nodejs       # global Node.js
+    go
     starship     # prompt (binary here, config via rite)
   ];
 
@@ -24,7 +25,7 @@
     enable = true;
     onActivation.cleanup = "zap";
     taps = [ "nikitabobko/tap" ];
-    brews = [ "julia" ];
+    brews = [ ];
     casks = [
       "aerospace"
       "scroll-reverser"
