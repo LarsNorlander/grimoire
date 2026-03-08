@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+import importlib.util
 import os
-import sys
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import click
+
+from arcana.tome import RiteContext, RiteSkipped
 
 GRIMOIRE_ROOT = Path.home() / ".grimoire"
 PROFILE_FILE = Path.home() / ".grimoire-profile"
@@ -52,24 +55,38 @@ def _ensure_prerequisites() -> None:
     click.echo("  Dependencies: ok\n")
 
 
-def _run_rite(rite_script: Path, profile: str, extra_flags: list[str]) -> None:
-    env = {**os.environ, "PYTHONPATH": str(GRIMOIRE_ROOT)}
-    subprocess.run(
-        ["uv", "run", str(rite_script), profile, str(GRIMOIRE_ROOT)] + extra_flags,
-        cwd=GRIMOIRE_ROOT,
-        env=env,
-        check=True,
-    )
+def _run_rite(rite_path: Path, profile: str, force: bool, accepting: bool,
+              dry_run: bool = False) -> None:
+    tool = rite_path.parent.name
+    ctx = RiteContext(profile, GRIMOIRE_ROOT, tool, force=force, accepting=accepting)
+    RiteContext._current = ctx
+    try:
+        spec = importlib.util.spec_from_file_location("rite", rite_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except RiteSkipped as e:
+        click.echo(e)
+        return
+    finally:
+        RiteContext._current = None
+    ctx.execute(dry_run=dry_run)
 
 
-def _build_rites(profile: str, force: bool) -> None:
+def _build_rites(profile: str, force: bool, dry_run: bool = False) -> None:
     click.echo("Building rites...")
-    extra_flags = ["--force"] if force else []
-    for rite_script in sorted(GRIMOIRE_ROOT.glob("rites/*/rite")):
-        if not os.access(rite_script, os.X_OK):
+    errors = []
+    for rite_path in sorted(GRIMOIRE_ROOT.glob("rites/*/rite")):
+        if not os.access(rite_path, os.X_OK):
             continue
-        _run_rite(rite_script, profile, extra_flags)
+        try:
+            _run_rite(rite_path, profile, force=force, accepting=False, dry_run=dry_run)
+        except Exception as e:
+            errors.append((rite_path.parent.name, e))
     click.echo()
+    if errors:
+        for tool, err in errors:
+            click.echo(f"  ERROR in {tool}: {err}", err=True)
+        sys.exit(1)
 
 
 @click.group()
@@ -82,25 +99,27 @@ def grimoire():
 @click.option("--recast", is_flag=True, help="Re-prompt for machine profile.")
 @click.option("--force", is_flag=True, help="Overwrite externally modified tome files.")
 @click.option("--accept", multiple=True, metavar="TOOL", help="Accept external changes back into rite sources.")
-def cast(recast: bool, force: bool, accept: tuple[str, ...]) -> None:
+@click.option("--dry-run", is_flag=True, help="Show what would be done without making changes.")
+def cast(recast: bool, force: bool, accept: tuple[str, ...], dry_run: bool) -> None:
     """Deploy grimoire onto the current machine."""
     if accept:
         _ensure_prerequisites()
         click.echo("Accepting external changes...")
         for tool in accept:
-            rite_script = GRIMOIRE_ROOT / "rites" / tool / "rite"
-            if not rite_script.is_file():
+            rite_path = GRIMOIRE_ROOT / "rites" / tool / "rite"
+            if not rite_path.is_file():
                 sys.exit(f"  ERROR: no rite found for '{tool}'")
-            _run_rite(rite_script, "", ["--accept"])
+            _run_rite(rite_path, "", force=False, accepting=True)
         click.echo("\nDone.")
         return
 
     click.echo(f"Casting grimoire from {GRIMOIRE_ROOT}\n")
     profile = _resolve_profile(recast)
     click.echo()
-    _apply_runes(profile)
+    if not dry_run:
+        _apply_runes(profile)
     _ensure_prerequisites()
-    _build_rites(profile, force)
+    _build_rites(profile, force, dry_run=dry_run)
     click.echo("Done.")
 
 
