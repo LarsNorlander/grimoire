@@ -6,11 +6,26 @@ import shutil
 import sys
 from pathlib import Path
 
+from detect_secrets import SecretsCollection
+from detect_secrets.settings import default_settings
+
 MANIFEST_FILENAME = ".manifest"
 
 
 def _hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _scan_for_secrets(path: Path) -> list[dict]:
+    """Return list of detected secrets (type + line_number) in a file."""
+    with default_settings():
+        collection = SecretsCollection()
+        collection.scan_file(str(path))
+    found = []
+    for _, secret_set in collection.data.items():
+        for secret in secret_set:
+            found.append({"type": secret.type, "line_number": secret.line_number})
+    return found
 
 
 def _load_manifest(tome_root: Path) -> dict[str, str]:
@@ -117,7 +132,13 @@ class RiteContext:
             if not rite_file.exists():
                 print(f"  {self.tool}/{filename}: no matching source — needs manual reconciliation")
                 continue
-            shutil.copy2(self.tome_dir / filename, rite_file)
+            tome_file = self.tome_dir / filename
+            if secrets := _scan_for_secrets(tome_file):
+                print(f"  ERROR {self.tool}/{filename}: potential secrets detected — refusing to accept")
+                for s in secrets:
+                    print(f"    line {s['line_number']}: {s['type']}")
+                sys.exit(1)
+            shutil.copy2(tome_file, rite_file)
             self._update_manifest(filename)
             print(f"  accepted {self.tool}/{filename}")
 
