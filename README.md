@@ -157,6 +157,10 @@ That's it. `cast` discovers the new rite automatically on the next run.
 
 Secrets are managed through [1Password](https://1password.com/) and its CLI (`op`). Nothing sensitive is stored in this repo — credentials, tokens, and keys are referenced from 1Password at runtime.
 
+## Contributing
+
+This is a personal configuration repo — it reflects one person's preferences and workflow. Contributions (issues, pull requests) are not accepted. You're welcome to fork it and make it your own.
+
 ## Built with Claude Code
 
 This repo is maintained with the help of [Claude Code](https://claude.com/claude-code).
