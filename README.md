@@ -22,6 +22,7 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 Re-run `grimoire cast` any time to rebuild configs.
 
 - `grimoire cast --recast` — change the machine profile
+- `grimoire cast --dry-run` — preview what would be built/linked without making changes
 - `grimoire cast --force` / `--accept <tool>` — see [Drift detection](#drift-detection) below
 
 ## Structure
@@ -54,7 +55,7 @@ grimoire/
 
 Grimoire has three layers, each with a single job:
 
-- **`arcana/`** — a pure Python library. Provides `RiteContext`, which is the only API rite scripts need. The context is *mode-aware*: the same rite script works in build mode and accept mode because the context changes behavior, not the script. Rites never branch on mode.
+- **`arcana/`** — a Python library and CLI entry point. Provides `RiteContext`, which is the only API rite scripts need. The context is *mode-aware*: the same rite script works in build mode and accept mode because the context changes behavior, not the script. Rites never branch on mode.
 - **`rites/*/rite`** — one self-contained executable per tool. Each rite describes *what* to build and where to link it, using two operations: `copy()` for static files and `write()` for generated content. A single rite can mix both — the distinction is per-file, not per-rite.
 - **`grimoire`** — the orchestrator. A thin bash bootstrap (Nix, symlink, first-run runes) that hands off to a Python CLI (`arcana/cli.py`) for profile selection, rune application, prerequisite sync, and rite dispatch. It doesn't know what any tool's config looks like.
 
