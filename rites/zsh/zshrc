@@ -7,10 +7,11 @@ DISABLE_AUTO_UPDATE=true
 ZSH_THEME=""
 plugins=(git)
 
-export PATH="$HOME/.grimoire:$HOME/.grimoire/cantrips:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.grimoire:$HOME/.grimoire/cantrips:$HOME/.local/bin:$HOME/Workbench/scripts:$PATH"
 
 # fpath extensions — must precede oh-my-zsh (which calls compinit internally)
 fpath=("$HOME/.config/zsh/completions" $fpath)
+[[ -f ~/.config/zsh/secrets.zsh ]] && source ~/.config/zsh/secrets.zsh
 [[ -f ~/.config/zsh/profile.zsh ]] && source ~/.config/zsh/profile.zsh
 
 source "$ZSH/oh-my-zsh.sh"
