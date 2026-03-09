@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import importlib.util
+from importlib.machinery import SourceFileLoader
 import os
 import shutil
 import subprocess
@@ -9,6 +10,8 @@ from pathlib import Path
 import click
 
 from arcana.tome import RiteContext, RiteSkipped
+
+sys.dont_write_bytecode = True  # rite scripts are extension-less; no point caching
 
 GRIMOIRE_ROOT = Path.home() / ".grimoire"
 PROFILE_FILE = Path.home() / ".grimoire-profile"
@@ -61,7 +64,9 @@ def _run_rite(rite_path: Path, profile: str, force: bool, accepting: bool,
     ctx = RiteContext(profile, GRIMOIRE_ROOT, tool, force=force, accepting=accepting)
     RiteContext._current = ctx
     try:
-        spec = importlib.util.spec_from_file_location("rite", rite_path)
+        spec = importlib.util.spec_from_file_location(
+            "rite", rite_path, loader=SourceFileLoader("rite", str(rite_path))
+        )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
     except RiteSkipped as e:
