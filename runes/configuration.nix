@@ -31,6 +31,7 @@
       "scroll-reverser"
       "1password-cli"
       "ghostty"
+      "obsidian"
     ];
   };
 
