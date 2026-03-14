@@ -46,3 +46,6 @@ copy-on-select = true
 mouse-hide-while-typing = true
 confirm-close-surface = false
 shell-integration-features = no-title
+
+# SSH
+shell-integration-features = ssh-env,ssh-terminfo
