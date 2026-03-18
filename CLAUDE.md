@@ -19,7 +19,7 @@ Three layers with strict responsibilities:
 5. **Prerequisites** — ensures `uv` is available (installed by runes), syncs `.venv` from `pyproject.toml` if `uv.lock` is newer
 6. **Rites** — runs each `rites/*/rite` script with the profile, outputting to `tome/` and symlinking to expected locations
 
-Flags: `--recast`, `--force`, `--accept <tool>`, `--help`/`-h`.
+Flags: `--recast`, `--force`, `--accept <tool>`, `--only rites|runes`, `--help`/`-h`.
 
 ## Directory Layout
 

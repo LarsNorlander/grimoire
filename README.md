@@ -23,6 +23,7 @@ Re-run `grimoire cast` any time to rebuild configs.
 
 - `grimoire cast --recast` — change the machine profile
 - `grimoire cast --dry-run` — preview what would be built/linked without making changes
+- `grimoire cast --only rites|runes` — run only rites or runes (skip the other)
 - `grimoire cast --force` / `--accept <tool>` — see [Drift detection](#drift-detection) below
 
 ## Structure

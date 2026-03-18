@@ -105,7 +105,9 @@ def grimoire():
 @click.option("--force", is_flag=True, help="Overwrite externally modified tome files.")
 @click.option("--accept", multiple=True, metavar="TOOL", help="Accept external changes back into rite sources.")
 @click.option("--dry-run", is_flag=True, help="Show what would be done without making changes.")
-def cast(recast: bool, force: bool, accept: tuple[str, ...], dry_run: bool) -> None:
+@click.option("--only", type=click.Choice(["rites", "runes"]), default=None,
+              help="Run only rites or runes (default: both).")
+def cast(recast: bool, force: bool, accept: tuple[str, ...], dry_run: bool, only: str | None) -> None:
     """Deploy grimoire onto the current machine."""
     if accept:
         _ensure_prerequisites()
@@ -121,10 +123,12 @@ def cast(recast: bool, force: bool, accept: tuple[str, ...], dry_run: bool) -> N
     click.echo(f"Casting grimoire from {GRIMOIRE_ROOT}\n")
     profile = _resolve_profile(recast)
     click.echo()
-    if not dry_run:
-        _apply_runes(profile)
-    _ensure_prerequisites()
-    _build_rites(profile, force, dry_run=dry_run)
+    if only != "rites":
+        if not dry_run:
+            _apply_runes(profile)
+    if only != "runes":
+        _ensure_prerequisites()
+        _build_rites(profile, force, dry_run=dry_run)
     click.echo("Done.")
 
 
