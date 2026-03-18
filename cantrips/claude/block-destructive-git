@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# block-destructive-git — PreToolUse hook that hard-denies destructive git
+# commands so they never reach the permission prompt (and can't be
+# rubber-stamped by a tired human).
+#
+# Blocked commands:
+#   git reset --hard       — nukes uncommitted work
+#   git clean -f           — deletes untracked files
+#   git checkout .         — discards all unstaged changes
+#   git checkout -- <path> — discards unstaged changes to specific files
+#
+# If a command matches, the hook returns a JSON deny decision.
+# Otherwise it exits 0 silently (allow).
+
+set -euo pipefail
+
+INPUT="$(cat)"
+COMMAND="$(printf '%s' "$INPUT" | /usr/bin/python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('tool_input', {}).get('command', ''))
+")"
+
+# Nothing to check if the command is empty
+[ -z "$COMMAND" ] && exit 0
+
+# Patterns that should never run unattended.
+# Using grep -E (ERE) for readability.
+DOMINATED=0
+if printf '%s' "$COMMAND" | grep -qE 'git\s+reset\s+--hard'; then
+    DOMINATED=1
+elif printf '%s' "$COMMAND" | grep -qE 'git\s+clean\s+(-[a-zA-Z]*f|--force)'; then
+    DOMINATED=1
+elif printf '%s' "$COMMAND" | grep -qE 'git\s+checkout\s+(\.|-- )'; then
+    DOMINATED=1
+fi
+
+if [ "$DOMINATED" -eq 1 ]; then
+    /usr/bin/python3 -c "
+import json, sys
+json.dump({
+    'hookSpecificOutput': {
+        'hookEventName': 'PreToolUse',
+        'permissionDecision': 'deny',
+        'permissionDecisionReason': 'BLOCKED: Destructive git command detected. This hook exists because a sub-agent once ran git reset --hard and destroyed an entire working tree of uncommitted changes. Never forget.'
+    }
+}, sys.stdout)
+"
+    exit 0
+fi
+
+exit 0

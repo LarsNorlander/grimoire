@@ -47,8 +47,10 @@ grimoire/
 │   ├── gh-dash/
 │   └── zsh/
 ├── cantrips/               # standalone utility scripts
-│   └── aerospace/
-│       └── resize-window-pct
+│   ├── aerospace/
+│   │   └── resize-window-pct
+│   └── claude/
+│       └── block-destructive-git
 └── tome/                   # built configs (gitignored)
 ```
 
