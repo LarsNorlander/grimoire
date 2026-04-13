@@ -1,3 +1,3 @@
 { ... }: {
-  homebrew.brews = [ "julia" ];
+  homebrew.brews = [ ];
 }

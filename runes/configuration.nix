@@ -27,7 +27,7 @@
     enable = true;
     onActivation.cleanup = "zap";
     taps = [ "nikitabobko/tap" ];
-    brews = [ ];
+    brews = [ "julia" ];
     casks = [
       "aerospace"
       "scroll-reverser"
