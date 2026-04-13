@@ -155,14 +155,14 @@ on-mode-changed = []
     # See: https://nikitabobko.github.io/AeroSpace/commands#resize
     minus = 'resize width -50'
     equal = 'resize width +50'
-    alt-minus = 'resize height -50'
-    alt-equal = 'resize height +50'
+    shift-minus = 'resize height -50'
+    shift-equal = 'resize height +50'
 
     # layout
     slash = 'layout tiles horizontal vertical'
     comma = 'layout accordion horizontal vertical'
 
-    # resize
+    # resize width
     ## regular %
     2 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 20']
     3 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 30']
@@ -178,6 +178,23 @@ on-mode-changed = []
     alt-4 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 45']
     alt-6 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 66.67']
     alt-7 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 75']
+
+    # resize height
+    ## regular %
+    shift-2 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 20 height']
+    shift-3 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 30 height']
+    shift-4 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 40 height']
+    shift-5 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 50 height']
+    shift-6 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 60 height']
+    shift-7 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 70 height']
+    shift-8 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 80 height']
+    shift-0 = ['balance-sizes']
+    ## alternate %
+    alt-shift-2 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 25 height']
+    alt-shift-3 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 33.33 height']
+    alt-shift-4 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 45 height']
+    alt-shift-6 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 66.67 height']
+    alt-shift-7 = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/resize-window-pct 75 height']
 
     # layout
     r = ['flatten-workspace-tree']

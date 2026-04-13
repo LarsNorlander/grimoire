@@ -4,20 +4,24 @@ ObjC.import('AppKit')
 
 function run(argv) {
     if (argv.length < 1) {
-        throw new Error('Usage: resize-window-pct <percent>')
+        throw new Error('Usage: resize-window-pct <percent> [width|height]')
     }
 
-    var pct = parseInt(argv[0], 10)
+    var pct = parseFloat(argv[0])
     if (isNaN(pct) || pct < 1 || pct > 100) {
         throw new Error('Percent must be between 1 and 100')
     }
 
-    // Get focused monitor's visible frame width (excludes menu bar and dock)
-    var visibleWidth = $.NSScreen.mainScreen.visibleFrame.size.width
+    var dimension = argv[1] || 'width'
+    if (dimension !== 'width' && dimension !== 'height') {
+        throw new Error('Dimension must be "width" or "height"')
+    }
 
-    // Read outer gaps from aerospace config
-    var outerLeft = 8
-    var outerRight = 8
+    // Get focused monitor's visible frame (excludes menu bar and dock)
+    var visibleFrame = $.NSScreen.mainScreen.visibleFrame.size
+
+    // Read outer gaps from aerospace config (defaults if unreadable)
+    var gaps = { left: 8, right: 8, top: 8, bottom: 8 }
     try {
         var configPath = $.NSString.stringWithString(
             '~/.aerospace.toml'
@@ -26,19 +30,21 @@ function run(argv) {
             configPath, $.NSUTF8StringEncoding, null
         ).js
 
-        var leftMatch = config.match(/outer\.left\s*=\s*(\d+)/)
-        if (leftMatch) outerLeft = parseInt(leftMatch[1], 10)
-
-        var rightMatch = config.match(/outer\.right\s*=\s*(\d+)/)
-        if (rightMatch) outerRight = parseInt(rightMatch[1], 10)
+        var keys = ['left', 'right', 'top', 'bottom']
+        for (var i = 0; i < keys.length; i++) {
+            var m = config.match(new RegExp('outer\\.' + keys[i] + '\\s*=\\s*(\\d+)'))
+            if (m) gaps[keys[i]] = parseInt(m[1], 10)
+        }
     } catch (e) {
         // Fall back to defaults if config can't be read
     }
 
-    var referenceWidth = visibleWidth - outerLeft - outerRight
-    var target = Math.round(referenceWidth * pct / 100)
+    var reference = dimension === 'width'
+        ? visibleFrame.width - gaps.left - gaps.right
+        : visibleFrame.height - gaps.top - gaps.bottom
+    var target = Math.round(reference * pct / 100)
 
     var app = Application.currentApplication()
     app.includeStandardAdditions = true
-    app.doShellScript('/opt/homebrew/bin/aerospace resize width ' + target)
+    app.doShellScript('/opt/homebrew/bin/aerospace resize ' + dimension + ' ' + target)
 }
