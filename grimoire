@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 #
 # Grimoire — personal machine configuration manager.
-# Bash handles first-run bootstrap; Python CLI handles everything else.
+# Bash ensures nix and uv are available; Python CLI handles everything else.
 
 set -euo pipefail
 
 grimoire_root="$(cd "$(dirname "$0")" && pwd)"
 
-# 1. Source Nix daemon profile
+# 1. Make nix and any nix-darwin-installed tools available on PATH.
+#    Harmless if the directories don't exist yet — PATH entries to missing
+#    directories are skipped.
 nix_profile=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 [ -f "$nix_profile" ] && . "$nix_profile"
+export PATH="/run/current-system/sw/bin:$PATH"
 
 # 2. Install Nix if missing
 if ! command -v nix &>/dev/null; then
@@ -45,22 +48,14 @@ if [ "$grimoire_root" != "$link" ]; then
     fi
 fi
 
-# 4. First-run bootstrap: apply runes if uv not yet installed
-if ! command -v uv &>/dev/null; then
-    profile_file="$HOME/.grimoire-profile"
-    if [ ! -f "$profile_file" ]; then
-        printf "Is this a work machine? [y/N] "
-        read -r answer
-        case "$answer" in [yY]*) echo "work" ;; *) echo "personal" ;; esac > "$profile_file"
-    fi
-    flake="$grimoire_root/runes#$(cat "$profile_file")"
-    if command -v darwin-rebuild &>/dev/null; then
-        sudo darwin-rebuild switch --flake "$flake"
-    else
-        sudo nix run nix-darwin -- switch --flake "$flake"
-    fi
-    export PATH="/run/current-system/sw/bin:$PATH"
+# 4. Hand off to Python. If uv isn't on PATH yet (truly first run),
+#    make it temporarily available via `nix shell` for this invocation.
+#    `grimoire bootstrap` will then install it system-wide via darwin-rebuild,
+#    so subsequent invocations find it directly without the nix-shell detour.
+if command -v uv &>/dev/null; then
+    exec env PYTHONPATH="$grimoire_root" \
+        uv run --project "$grimoire_root" python -m arcana.cli "$@"
+else
+    exec nix shell nixpkgs#uv --command env PYTHONPATH="$grimoire_root" \
+        uv run --project "$grimoire_root" python -m arcana.cli "$@"
 fi
-
-# 5. Hand off to Python
-exec env PYTHONPATH="$grimoire_root" uv run --project "$grimoire_root" python -m arcana.cli "$@"

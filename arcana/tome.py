@@ -1,6 +1,7 @@
 """Context for grimoire rite scripts (build and accept modes)."""
 
 import hashlib
+import re
 import shutil
 import sys
 from dataclasses import dataclass
@@ -11,6 +12,43 @@ from detect_secrets import SecretsCollection
 from detect_secrets.settings import default_settings
 
 MANIFEST_FILENAME = ".manifest"
+
+_PROFILE_DIRECTIVE_RE = re.compile(r'#\s*profile:\s*(.+?)\s*$', re.IGNORECASE)
+
+
+def parse_rite_profiles(rite_path: Path) -> set[str] | None:
+    """Parse `# profile: <names>` from a rite's header comment.
+
+    Returns the set of profiles the rite is declared compatible with, or
+    None if no directive is present (rite applies to every profile).
+
+    Scans only the contiguous comment block at the top of the file — stops
+    at the first non-comment, non-blank line. The directive key is matched
+    case-insensitively; values are taken as written (profile names match
+    `VALID_PROFILES` exactly). Trailing `#` comments on the directive line
+    are stripped before splitting (e.g., `# profile: work  # TODO` yields
+    just `{'work'}`).
+
+    Profile gating is metadata, not code, so this is the single source of
+    truth that both `_load_rite` and shell-completion consult.
+    """
+    try:
+        text = rite_path.read_text()
+    except (OSError, UnicodeDecodeError):
+        return None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#!"):
+            continue
+        if not line.startswith("#"):
+            return None  # reached code without a directive
+        if m := _PROFILE_DIRECTIVE_RE.match(line):
+            value = m.group(1)
+            if "#" in value:
+                value = value.split("#", 1)[0]
+            profiles = value.split()
+            return set(profiles) if profiles else None
+    return None
 
 
 def _hash_file(path: Path) -> str:
@@ -41,7 +79,7 @@ def load_manifest(tome_root: Path) -> dict[str, str]:
     return entries
 
 
-def _save_manifest(tome_root: Path, entries: dict[str, str]) -> None:
+def save_manifest(tome_root: Path, entries: dict[str, str]) -> None:
     manifest_path = tome_root / MANIFEST_FILENAME
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"{key}={value}" for key, value in sorted(entries.items())]
@@ -94,28 +132,35 @@ class RiteContext:
 
     @classmethod
     def from_args(cls) -> "RiteContext":
+        """Return the context a rite should register operations against.
+
+        Two modes:
+
+        - **CLI dispatch** (the common case): the CLI pre-populates `_current`
+          via `_load_rite` before importing the rite module. We return that.
+        - **Standalone invocation** (for debugging a single rite without the
+          CLI): `./rites/<tool>/rite <profile> <grimoire_root> [--force] [--accept]`.
+          Parse argv, honor any `# profile:` frontmatter, build a fresh
+          context, and register `execute()` via atexit so the rite's
+          declarative ops run at process exit.
+        """
         if cls._current is not None:
             return cls._current
-        # Standalone mode: parse sys.argv and register execute() via atexit.
         import atexit
         profile = sys.argv[1]
         grimoire_root = Path(sys.argv[2])
         force = "--force" in sys.argv[3:]
         accepting = "--accept" in sys.argv[3:]
-        tool = Path(sys.argv[0]).resolve().parent.name
-        ctx = cls(profile, grimoire_root, tool, force, accepting)
+        rite_path = Path(sys.argv[0]).resolve()
+        tool = rite_path.parent.name
+        if not accepting:
+            allowed = parse_rite_profiles(rite_path)
+            if allowed and profile not in allowed:
+                print(f"  skipped {tool} — requires {'/'.join(sorted(allowed))} profile")
+                sys.exit(0)
+        ctx = cls(profile, grimoire_root, tool, force=force, accepting=accepting)
         atexit.register(ctx.execute)
         return ctx
-
-    def require_profile(self, *profiles: str) -> None:
-        """Skip this rite if current profile is not in the required set."""
-        if self.accepting or self.profile in profiles:
-            return
-        msg = f"  skipped {self.tool} — requires {'/'.join(profiles)} profile"
-        if RiteContext._current is not None:
-            raise RiteSkipped(msg)
-        print(msg)
-        sys.exit(0)
 
     def _manifest_key(self, filename: str) -> str:
         return f"{self.tool}/{filename}"
@@ -136,7 +181,7 @@ class RiteContext:
 
     def _save_if_dirty(self) -> None:
         if self._dirty:
-            _save_manifest(self._tome_root, self._manifest)
+            save_manifest(self._tome_root, self._manifest)
 
     # --- Public API: operation builders ---
 
@@ -151,6 +196,19 @@ class RiteContext:
 
     def hook(self, name: str, fn: Callable) -> None:
         self._ops.append(HookOp(name, fn))
+
+    # --- Introspection ---
+
+    def registered_keys(self) -> set[str]:
+        """Manifest keys ({tool}/{filename}) this context has registered via copy()/write()."""
+        keys: set[str] = set()
+        for op in self._ops:
+            if isinstance(op, CopyOp):
+                for f in op.files:
+                    keys.add(self._manifest_key(f))
+            elif isinstance(op, WriteOp):
+                keys.add(self._manifest_key(op.filename))
+        return keys
 
     # --- Execution ---
 
@@ -229,6 +287,10 @@ class RiteContext:
         dest = Path(target).expanduser()
         if dry_run:
             print(f"  [dry-run] link {dest} -> {source}")
+            return
+        # No-op if the symlink is already pointing where we'd aim it.
+        # (Keeps repeat-cast output quiet when nothing has moved.)
+        if dest.is_symlink() and dest.readlink() == source:
             return
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.is_symlink():

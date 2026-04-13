@@ -2,3 +2,4 @@ tome/
 .venv/
 __pycache__/
 .idea
+result

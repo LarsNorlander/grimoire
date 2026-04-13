@@ -1,30 +1,43 @@
 # Grimoire
 
-Personal Mac configuration — what's installed and how tools are configured, portable across work and personal machines. (The fantasy naming is intentional: "rites" are config scripts, "runes" are Nix packages, "tome" is the build output, and `grimoire cast` ties it all together.)
+Personal Mac configuration — what's installed and how tools are configured, portable across work and personal machines. (The fantasy naming is intentional: "rites" are config scripts, "runes" are Nix packages, "tome" is the build output; `grimoire cast` applies rites and `grimoire inscribe` applies runes.)
 
 ## Install
 
-Clone directly to `~/.grimoire` and run `grimoire cast`:
+On a new machine, clone directly to `~/.grimoire` and invoke the bash wrapper by full path (it's not on `PATH` yet):
 
 ```
 git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
-~/.grimoire/grimoire cast
+~/.grimoire/grimoire bootstrap
 ```
 
-`grimoire cast` will:
-1. Verify/install Nix (Determinate) if missing
-2. Link `~/.grimoire` to the repo (if cloned elsewhere)
-3. Ask whether this is a work or personal machine (stored in `~/.grimoire-profile`)
-4. Apply nix-darwin config (`darwin-rebuild switch`) — installs packages, Homebrew apps, macOS defaults
-5. Sync Python venv (`uv sync`)
-6. Build rite configs into `tome/` and symlink into place
+`bootstrap` is the end-to-end provisioning verb. The bash wrapper ensures Nix is installed and that `uv` is available (via `nix shell nixpkgs#uv` on truly first run), creates the `~/.grimoire` symlink if needed, then hands off to Python. The `bootstrap` verb itself prompts for profile (work/personal), applies runes (`darwin-rebuild switch` — Nix packages, Homebrew casks, fonts, macOS defaults), then applies all rites. After the zsh rite runs, `~/.grimoire` is on `PATH`, so from the next shell onward you can use `grimoire` directly.
 
-Re-run `grimoire cast` any time to rebuild configs.
+`bootstrap` is idempotent — safe to re-run. After the initial bootstrap, use the narrower verbs (`cast`, `inscribe`, `accept`, `diff`) for day-to-day work.
 
-- `grimoire cast --recast` — change the machine profile
+### `grimoire cast` — apply rites
+
+Rites are the common case: every time you tweak a tool config, `cast` rebuilds the tome and refreshes symlinks.
+
+- `grimoire cast` — apply all rites
+- `grimoire cast <tool> [<tool> ...]` — apply only the named rites
 - `grimoire cast --dry-run` — preview what would be built/linked without making changes
-- `grimoire cast --only rites|runes` — run only rites or runes (skip the other)
-- `grimoire cast --force` / `--accept <tool>` — see [Drift detection](#drift-detection) below
+- `grimoire cast --force` / `grimoire accept <tool>` — see [Drift detection](#drift-detection) below
+
+### `grimoire inscribe` — apply runes
+
+Runes are the system layer: packages, Homebrew casks, fonts, macOS defaults. Run `inscribe` after editing `runes/*.nix`.
+
+- `grimoire inscribe` — run `darwin-rebuild switch` against the profile's flake output
+- `grimoire inscribe --dry-run` — run `darwin-rebuild build` (materializes the derivation without activating)
+
+### `grimoire profile` — show or change the machine profile
+
+The profile (`work` or `personal`) is stored in `~/.grimoire-profile` and selects which flake output runes target and which overlay rites apply.
+
+- `grimoire profile` — print the current profile (exits 1 if unset)
+- `grimoire profile set work` / `set personal` — set explicitly
+- `grimoire profile unset` — clear the profile (next verb that needs one will prompt)
 
 ## Structure
 
@@ -40,13 +53,14 @@ grimoire/
 │   └── work.nix            # work profile overlay
 ├── rites/                  # dotfile sources (per tool)
 │   ├── aerospace/          # merges base + profile overlay
-│   ├── git/
+│   ├── ccstatusline/
+│   ├── claude/             # Claude Code settings + global CLAUDE.md
+│   ├── gh-dash/            # work profile only
 │   ├── ghostty/
+│   ├── git/
 │   ├── starship/
 │   ├── zed/
-│   ├── ccstatusline/
-│   ├── gh-dash/
-│   └── zsh/
+│   └── zsh/                # copy + profile overlay + generated completion
 ├── cantrips/               # standalone utility scripts
 │   ├── aerospace/
 │   │   └── resize-window-pct
@@ -61,7 +75,7 @@ Grimoire has three layers, each with a single job:
 
 - **`arcana/`** — a Python library and CLI entry point. Provides `RiteContext`, which is the only API rite scripts need. The context is *mode-aware*: the same rite script works in build mode and accept mode because the context changes behavior, not the script. Rites never branch on mode.
 - **`rites/*/rite`** — one self-contained executable per tool. Each rite describes *what* to build and where to link it, using two operations: `copy()` for static files and `write()` for generated content. A single rite can mix both — the distinction is per-file, not per-rite.
-- **`grimoire`** — the orchestrator. A thin bash bootstrap (Nix, symlink, first-run runes) that hands off to a Python CLI (`arcana/cli.py`) for profile selection, rune application, prerequisite sync, and rite dispatch. It doesn't know what any tool's config looks like.
+- **`grimoire`** — the orchestrator. A thin bash wrapper (ensures Nix is installed, manages the `~/.grimoire` symlink, makes `uv` available via `nix shell` on first run) that hands off to a Python CLI (`arcana/cli.py`) for profile selection, rune application, prerequisite sync, and rite dispatch. It doesn't know what any tool's config looks like.
 
 ### `copy()` vs `write()`
 
@@ -100,7 +114,7 @@ Symlinks always point to `tome/` (gitignored), so tools that auto-modify their c
 A manifest (`tome/.manifest`) tracks content hashes of every built file. If a tome file is externally modified, `grimoire cast` warns and skips it instead of silently overwriting your changes. From there:
 
 - `grimoire cast --force` — overwrite and rebuild from source
-- `grimoire cast --accept <tool> [--accept <tool2> ...]` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
+- `grimoire accept <tool> [<tool2> ...]` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
 
 ### Inspecting drift
 
@@ -108,9 +122,9 @@ A manifest (`tome/.manifest`) tracks content hashes of every built file. If a to
 
 - **drift** — tome vs. manifest (what's changed on disk since last cast)
 - **cast** — tome vs. what a fresh rebuild would produce (what `grimoire cast` would change)
-- **accept** — tome vs. rite source (what `--accept` would pull back; `copy()`-managed files only)
+- **accept** — tome vs. rite source (what `grimoire accept` would pull back; `copy()`-managed files only)
 
-When the same file has both drift and pending cast changes, `diff` flags it as a potential conflict — both `cast --force` and `--accept` would each clobber something.
+When the same file has both drift and pending cast changes, `diff` flags it as a potential conflict — both `cast --force` and `accept` would each clobber something.
 
 Flags:
 

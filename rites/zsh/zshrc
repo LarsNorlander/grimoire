@@ -1,4 +1,4 @@
-# Managed by grimoire — do not edit directly; use: grimoire cast --accept zsh
+# Managed by grimoire — do not edit directly; use: grimoire accept zsh
 
 export EDITOR="nvim"
 
