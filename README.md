@@ -31,6 +31,16 @@ Runes are the system layer: packages, Homebrew casks, fonts, macOS defaults. Run
 
 The profile is stored in `~/.grimoire-profile` and selects which flake output runes target and which overlay rites apply. `grimoire profile` alone prints the current profile; `grimoire profile set <name>` changes it, `unset` clears it.
 
+### `grimoire summon` — invoke an ephemeral familiar
+
+Familiars (`familiars/<name>.nix`) are named, ephemeral toolkits — each one a `mkShell` expression declaring packages and shell hooks. `grimoire summon <name>` drops you into a shell with those tools on `PATH` and the familiar's env vars set; exit and nothing persists in your home directory. Use them for tools you reach for rarely or for language experiments you don't want cluttering your daily environment.
+
+Run a single command inside a familiar without entering the shell:
+
+    grimoire summon aws -- aws s3 ls
+
+Rule of thumb: if a tool's config lives in `~/.config/...` and you want it managed, that's a rite (persistent). If all you need is the binary on `PATH` plus env vars, it's a familiar.
+
 ## Structure
 
 - `grimoire` — bash wrapper (sources Nix, ensures `uv`, delegates to the Python CLI)
@@ -38,10 +48,11 @@ The profile is stored in `~/.grimoire-profile` and selects which flake output ru
 - `runes/` — nix-darwin system config: a flake with one output per profile, a shared base, and per-profile overlays
 - `rites/<tool>/` — one directory per managed tool, each with source files and a `rite` script
 - `cantrips/<tool>/` — standalone utility scripts, organized by the tool they relate to
+- `familiars/<name>.nix` — ephemeral toolkits (each a `mkShell` expression), summoned via `grimoire summon`
 - `tome/` — gitignored build output (every symlink points here)
 - `pyproject.toml` — Python dependencies (managed by uv)
 
-Browse `rites/` and `cantrips/` to see what's currently managed — the directories are the source of truth, not this README.
+Browse `rites/`, `cantrips/`, and `familiars/` to see what's currently managed — the directories are the source of truth, not this README.
 
 ## How It Works
 

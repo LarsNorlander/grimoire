@@ -288,6 +288,17 @@ def _complete_tool_names(ctx, param, incomplete: str) -> list[str]:
     return sorted(results)
 
 
+def _complete_familiar_names(ctx, param, incomplete: str) -> list[str]:
+    """Shell-completion callback: enumerate familiars/*.nix as candidates."""
+    familiars_dir = GRIMOIRE_ROOT / "familiars"
+    if not familiars_dir.is_dir():
+        return []
+    return sorted(
+        p.stem for p in familiars_dir.glob("*.nix")
+        if p.stem.startswith(incomplete)
+    )
+
+
 @click.group()
 def grimoire():
     """Grimoire — personal machine configuration manager."""
@@ -339,6 +350,40 @@ def accept(tools: tuple[str, ...], dry_run: bool) -> None:
             sys.exit(f"  ERROR: no rite found for '{tool}'")
         _run_rite(rite_path, profile, force=False, accepting=True, dry_run=dry_run)
     click.echo("\nDone.")
+
+
+# Ephemeral invocation ────────────────────────────────────────────────────────
+
+@grimoire.command()
+@click.argument("familiar", shell_complete=_complete_familiar_names)
+@click.argument("cmd", nargs=-1, type=click.UNPROCESSED)
+def summon(familiar: str, cmd: tuple[str, ...]) -> None:
+    """Enter an ephemeral shell with the named familiar's tools.
+
+    Pass a command after `--` to run it inside the familiar and exit:
+
+        grimoire summon aws -- aws s3 ls
+    """
+    familiar_path = GRIMOIRE_ROOT / "familiars" / f"{familiar}.nix"
+    if not familiar_path.is_file():
+        sys.exit(
+            f"ERROR: no familiar named '{familiar}' "
+            f"(see {GRIMOIRE_ROOT}/familiars/)"
+        )
+
+    args = ["nix", "develop", "-f", str(familiar_path)]
+    if cmd:
+        args += ["--command", *cmd]
+    else:
+        # `nix develop` defaults to bash — hand off to the user's login
+        # shell instead, so zsh/starship/aliases survive into the familiar.
+        # The shellHook has already run by the time this shell starts, so
+        # GRIMOIRE_FAMILIAR + other env vars are inherited.
+        if user_shell := os.environ.get("SHELL"):
+            args += ["--command", user_shell]
+
+    result = subprocess.run(args)
+    sys.exit(result.returncode)
 
 
 # Compound verb ───────────────────────────────────────────────────────────────

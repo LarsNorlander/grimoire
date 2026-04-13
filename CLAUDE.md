@@ -28,7 +28,7 @@ The `grimoire` bash wrapper has one job: make sure Python can run. It sources Ni
 
 The bash wrapper does **not** prompt for profile or run `darwin-rebuild`; both belong to Python. Keeping bash minimal means the verb semantics live in one place. For the exact implementation, read `grimoire` — it's short.
 
-The Python CLI exposes verbs for applying rites (`cast`), applying runes (`inscribe`), salvaging external changes into rite sources (`accept`), inspecting state (`diff`), managing the profile (`profile`), and a compound `bootstrap` that runs runes + rites for fresh machines. Rites and runes are independent — `bootstrap` is syntactic sugar for `inscribe && cast`. For per-verb usage and flags, see `grimoire --help` and `grimoire <verb> --help`.
+The Python CLI exposes verbs for applying rites (`cast`), applying runes (`inscribe`), salvaging external changes into rite sources (`accept`), inspecting state (`diff`), managing the profile (`profile`), summoning an ephemeral familiar (`summon`), and a compound `bootstrap` that runs runes + rites for fresh machines. Rites and runes are independent — `bootstrap` is syntactic sugar for `inscribe && cast`. For per-verb usage and flags, see `grimoire --help` and `grimoire <verb> --help`.
 
 Profile is the source of truth in `~/.grimoire-profile` (plain text, single line). The `profile` group is ergonomic UI on top — power users can edit the file directly. Verbs that need the profile read it via `_resolve_profile()`, which prompts interactively if the file is missing.
 
@@ -38,6 +38,7 @@ Profile is the source of truth in `~/.grimoire-profile` (plain text, single line
 - `runes/` — nix-darwin system configuration. A flake with one output per profile, a shared base, and per-profile overlays.
 - `rites/<tool>/` — source files and a `rite` script per tool. Each rite imports `RiteContext` and registers declarative ops (`copy`, `write`, `link`, `hook`); the CLI loads the rite module and executes the ops against `tome/`. Rites can also be invoked standalone for debugging: `./rites/<tool>/rite <profile> <grimoire_root> [--force] [--accept]`.
 - `cantrips/<tool>/` — standalone utility scripts, organized by the tool they relate to. Always present at `~/.grimoire/cantrips/` (via the `~/.grimoire` symlink). On `PATH` after the zsh rite applies — so `grimoire cast` + a new shell makes them directly invocable.
+- `familiars/<name>.nix` — ephemeral toolkits. Each file is a `mkShell` expression; `grimoire summon <name>` dispatches to `nix develop -f familiars/<name>.nix`. Use for tools that should not persist on the machine — language experiments, rarely-used tools, situational toolkits.
 - `tome/` — gitignored. Contains built config files ready for symlinking.
 - `.venv/` — gitignored. Managed by uv from `pyproject.toml`.
 
@@ -76,6 +77,26 @@ Profile is the source of truth in `~/.grimoire-profile` (plain text, single line
 5. If the rite introduces a user-visible concept or changes the cast/accept/drift model, update `README.md`. Adding another rite to an existing pattern does not require a README change — `rites/` is the source of truth for what's managed.
 
 **Accept mode note:** `grimoire accept` only round-trips `copy()`-managed files (copies the tome file back into the rite source dir). For `write()`-managed files, accept warns and skips — you must manually reconcile generated content.
+
+## Adding a New Familiar
+
+Familiars are for ephemeral tool sets — a language you're learning, a tool you reach for rarely. Create `familiars/<name>.nix` as a `mkShell` expression:
+
+```nix
+let pkgs = import <nixpkgs> { };
+in pkgs.mkShell {
+  buildInputs = with pkgs; [ <packages> ];
+
+  shellHook = ''
+    export GRIMOIRE_FAMILIAR=<name>
+    # any env vars the tools need
+  '';
+}
+```
+
+`grimoire summon <name>` discovers it automatically — no registration. The starship `custom.familiar` module reads `$GRIMOIRE_FAMILIAR` and shows `<name> familiar` in the prompt; setting that env var is the only convention required.
+
+Decide between rite and familiar by asking *"if the familiar isn't summoned, do I still want this on the machine?"* — if yes, rite or rune; if no, familiar. Tools whose config files are written into `~/.config/...` generally need a rite; tools that accept env-var config paths can bundle their config inside the familiar via `${./config-dir}` path interpolation (nix copies the dir into the store; env var points at the store path).
 
 ## README Consistency
 

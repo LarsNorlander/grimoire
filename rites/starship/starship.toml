@@ -106,6 +106,7 @@ symbol = "󰆥 "
 
 [nix_shell]
 symbol = " "
+disabled = true
 
 [nodejs]
 symbol = " "
@@ -205,3 +206,10 @@ symbol = " "
 
 [zig]
 symbol = " "
+
+[custom.familiar]
+description = "Shows the active grimoire familiar"
+when = '[ -n "$GRIMOIRE_FAMILIAR" ]'
+command = 'echo "$GRIMOIRE_FAMILIAR"'
+format = 'via [ grimoire \($output\)]($style) '
+style = "bold blue"
