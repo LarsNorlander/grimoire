@@ -28,7 +28,7 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 automatically-unhide-macos-hidden-apps = false
 
 # Workspaces that stay alive even when empty
-persistent-workspaces = ["Workbench", "Project", "TTY", "Claude", "Music"]
+persistent-workspaces = ["Workbench", "Sideboard", "TTY", "Claude", "Music"]
 
 on-mode-changed = []
 
@@ -85,7 +85,7 @@ on-mode-changed = []
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
     alt-1 = 'workspace Workbench'
-    alt-2 = 'workspace Project'
+    alt-2 = 'workspace Sideboard'
     alt-3 = 'workspace TTY'
     alt-6 = 'workspace Claude'
     alt-7 = 'workspace Music'
@@ -100,7 +100,7 @@ on-mode-changed = []
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
     alt-shift-1 = ['move-node-to-workspace Workbench', 'workspace Workbench']
-    alt-shift-2 = ['move-node-to-workspace Project', 'workspace Project']
+    alt-shift-2 = ['move-node-to-workspace Sideboard', 'workspace Sideboard']
     alt-shift-3 = ['move-node-to-workspace TTY', 'workspace TTY']
     alt-shift-6 = ['move-node-to-workspace Claude', 'workspace Claude']
     alt-shift-7 = ['move-node-to-workspace Music', 'workspace Music']
@@ -124,7 +124,7 @@ on-mode-changed = []
     # reset workspace-to-monitor layout
     d = [
         'move-workspace-to-monitor --workspace Workbench main',
-        'move-workspace-to-monitor --workspace Project main',
+        'move-workspace-to-monitor --workspace Sideboard main',
         'move-workspace-to-monitor --workspace TTY main',
         'move-workspace-to-monitor --workspace Scratch main',
         'move-workspace-to-monitor --workspace Claude secondary',
