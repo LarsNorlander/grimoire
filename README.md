@@ -2,6 +2,10 @@
 
 Personal Mac configuration — what's installed and how tools are configured, portable across work and personal machines. (The fantasy naming is intentional: "rites" are config scripts, "runes" are Nix packages, "tome" is the build output; `grimoire cast` applies rites and `grimoire inscribe` applies runes.)
 
+## Scope
+
+Grimoire is a **macOS-only** configuration manager, by design. Its architecture is shaped by macOS conventions — `nix-darwin`, Homebrew as an escape hatch, `darwin-rebuild switch`, profile overlays that assume a desktop environment. Making it cross-platform would require hedging each of those choices, trading coherence for reach. Linux support is out of scope; a non-macOS machine warrants a separate tool with its own architectural bets, not an expansion of grimoire.
+
 ## Install
 
 On a new machine, clone directly to `~/.grimoire` and invoke the bash wrapper by full path (it's not on `PATH` yet):
@@ -11,63 +15,33 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 ~/.grimoire/grimoire bootstrap
 ```
 
-`bootstrap` is the end-to-end provisioning verb. The bash wrapper ensures Nix is installed and that `uv` is available (via `nix shell nixpkgs#uv` on truly first run), creates the `~/.grimoire` symlink if needed, then hands off to Python. The `bootstrap` verb itself prompts for profile (work/personal), applies runes (`darwin-rebuild switch` — Nix packages, Homebrew casks, fonts, macOS defaults), then applies all rites. After the zsh rite runs, `~/.grimoire` is on `PATH`, so from the next shell onward you can use `grimoire` directly.
+`bootstrap` is the end-to-end provisioning verb. The bash wrapper makes sure Nix and `uv` are available, then hands off to Python. `bootstrap` prompts for profile, applies runes (system packages, casks, fonts, macOS defaults via `darwin-rebuild switch`), then applies all rites. After the zsh rite runs, `~/.grimoire` is on `PATH`, so from the next shell onward you can use `grimoire` directly.
 
 `bootstrap` is idempotent — safe to re-run. After the initial bootstrap, use the narrower verbs (`cast`, `inscribe`, `accept`, `diff`) for day-to-day work.
 
 ### `grimoire cast` — apply rites
 
-Rites are the common case: every time you tweak a tool config, `cast` rebuilds the tome and refreshes symlinks.
-
-- `grimoire cast` — apply all rites
-- `grimoire cast <tool> [<tool> ...]` — apply only the named rites
-- `grimoire cast --dry-run` — preview what would be built/linked without making changes
-- `grimoire cast --force` / `grimoire accept <tool>` — see [Drift detection](#drift-detection) below
+Rites are the common case: every time you tweak a tool config, `cast` rebuilds the tome and refreshes symlinks. Pass tool names to narrow to specific rites; `--force` and `grimoire accept` cover drift resolution (see below). Run `grimoire cast --help` for the full flag reference.
 
 ### `grimoire inscribe` — apply runes
 
-Runes are the system layer: packages, Homebrew casks, fonts, macOS defaults. Run `inscribe` after editing `runes/*.nix`.
-
-- `grimoire inscribe` — run `darwin-rebuild switch` against the profile's flake output
-- `grimoire inscribe --dry-run` — run `darwin-rebuild build` (materializes the derivation without activating)
+Runes are the system layer: packages, Homebrew casks, fonts, macOS defaults. Run `inscribe` after editing `runes/*.nix`. `--dry-run` materializes the derivation without activating.
 
 ### `grimoire profile` — show or change the machine profile
 
-The profile (`work` or `personal`) is stored in `~/.grimoire-profile` and selects which flake output runes target and which overlay rites apply.
-
-- `grimoire profile` — print the current profile (exits 1 if unset)
-- `grimoire profile set work` / `set personal` — set explicitly
-- `grimoire profile unset` — clear the profile (next verb that needs one will prompt)
+The profile is stored in `~/.grimoire-profile` and selects which flake output runes target and which overlay rites apply. `grimoire profile` alone prints the current profile; `grimoire profile set <name>` changes it, `unset` clears it.
 
 ## Structure
 
-```
-grimoire/
-├── grimoire                # Bash bootstrap: sources nix, delegates to Python CLI
-├── pyproject.toml          # Python dependencies (managed by uv)
-├── arcana/                 # Python library (RiteContext) + CLI entry point (cli.py)
-├── runes/                  # nix-darwin system config
-│   ├── flake.nix           # flake entrypoint (personal + work outputs)
-│   ├── configuration.nix   # shared base (packages, Homebrew, macOS defaults)
-│   ├── personal.nix        # personal profile overlay
-│   └── work.nix            # work profile overlay
-├── rites/                  # dotfile sources (per tool)
-│   ├── aerospace/          # merges base + profile overlay
-│   ├── ccstatusline/
-│   ├── claude/             # Claude Code settings + global CLAUDE.md
-│   ├── gh-dash/            # work profile only
-│   ├── ghostty/
-│   ├── git/
-│   ├── starship/
-│   ├── zed/
-│   └── zsh/                # copy + profile overlay + generated completion
-├── cantrips/               # standalone utility scripts
-│   ├── aerospace/
-│   │   └── resize-window-pct
-│   └── claude/
-│       └── block-destructive-git
-└── tome/                   # built configs (gitignored)
-```
+- `grimoire` — bash wrapper (sources Nix, ensures `uv`, delegates to the Python CLI)
+- `arcana/` — Python library (`RiteContext`) and CLI entry point (`cli.py`)
+- `runes/` — nix-darwin system config: a flake with one output per profile, a shared base, and per-profile overlays
+- `rites/<tool>/` — one directory per managed tool, each with source files and a `rite` script
+- `cantrips/<tool>/` — standalone utility scripts, organized by the tool they relate to
+- `tome/` — gitignored build output (every symlink points here)
+- `pyproject.toml` — Python dependencies (managed by uv)
+
+Browse `rites/` and `cantrips/` to see what's currently managed — the directories are the source of truth, not this README.
 
 ## How It Works
 
@@ -79,33 +53,27 @@ Grimoire has three layers, each with a single job:
 
 ### `copy()` vs `write()`
 
-**`copy()`** is for files you edit directly. The Starship rite is the simplest example — it's the entire script:
+**`copy()`** is for files you edit directly. A minimal rite is three lines:
 
 ```python
 ctx = RiteContext.from_args()
-ctx.copy("starship.toml")
-ctx.link("starship.toml", "~/.config/starship.toml")
+ctx.copy("config.toml")
+ctx.link("config.toml", "~/.config/tool/config.toml")
 ```
 
-**`write()`** takes a builder function for configs that need merging, templating, or any other transformation. The AeroSpace rite uses this to merge a base config with a profile-specific overlay via tomlkit:
+**`write()`** takes a builder function for configs that need merging, templating, or any other transformation:
 
 ```python
-def build_aerospace(*, profile, rite_dir, **_):
-    with open(rite_dir / "base.toml") as f:
-        doc = tomlkit.load(f)
-    overlay_file = {"work": "work.toml", "personal": "personal.toml"}.get(profile)
-    if overlay_file:
-        with open(rite_dir / overlay_file) as f:
-            overlay = tomlkit.load(f)
-        merge_into_table(doc, overlay)
-    return tomlkit.dumps(doc)
+def build_config(*, profile, rite_dir, **_):
+    # load files from rite_dir, merge profile-aware, return a string
+    ...
 
 ctx = RiteContext.from_args()
-ctx.write("aerospace.toml", build_aerospace)
-ctx.link("aerospace.toml", "~/.aerospace.toml")
+ctx.write("config.toml", build_config)
+ctx.link("config.toml", "~/.config/tool/config.toml")
 ```
 
-The builder receives `profile`, `rite_dir`, and `grimoire_root` as kwargs — enough to load files and make profile-aware decisions.
+The builder receives `profile`, `rite_dir`, and `grimoire_root` as kwargs — enough to load files and make profile-aware decisions. See `rites/` for concrete examples of both patterns.
 
 ### Drift detection
 
@@ -126,13 +94,7 @@ A manifest (`tome/.manifest`) tracks content hashes of every built file. If a to
 
 When the same file has both drift and pending cast changes, `diff` flags it as a potential conflict — both `cast --force` and `accept` would each clobber something.
 
-Flags:
-
-- `--drift` / `--cast` / `--accept` — restrict to one or more axes (combinable)
-- `--build` — evaluate `--cast` for `write()` rites (re-runs their generators; otherwise shown as `?`)
-- `--full` — print unified diffs instead of summary status
-
-Exit codes: `0` no changes, `1` changes present, `2` error.
+Flags let you restrict to specific axes, re-run `write()` generators inline (`--build`), or print unified diffs (`--full`); see `grimoire diff --help` for the exact set. Exit codes: `0` no changes, `1` changes present, `2` error.
 
 ## Adding a New Config
 

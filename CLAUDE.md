@@ -2,6 +2,20 @@
 
 Personal machine configuration and scripts, portable across work and personal Macs.
 
+## Scope
+
+**macOS-only, by design.** Linux support is explicitly out of scope.
+
+Grimoire's architecture is shaped by macOS-specific bets that make it coherent:
+
+- `nix-darwin` for system config (system-wide install, launchd, `system.defaults`, `fonts.packages`)
+- Homebrew as a first-class escape hatch for packages nixpkgs-darwin doesn't support (e.g., `julia` — `meta.platforms` explicitly excludes darwin) and for GUI casks
+- `darwin-rebuild switch` as the activation model
+- Profile overlays that assume macOS desktop conventions (AeroSpace, etc.)
+- The bash wrapper sources `/run/current-system/sw/bin` and `nix-daemon.sh` — paths only meaningful on nix-darwin
+
+Making grimoire cross-platform would require hedging each of those choices, trading coherence for reach. If a non-macOS machine ever needs configuration management, build a separate tool with its own architectural bets — don't expand grimoire. Do not add realm/OS/platform gating to rites or runes.
+
 ## Architecture
 
 Three layers with strict responsibilities:
@@ -10,38 +24,20 @@ Three layers with strict responsibilities:
 - **`rites/*/rite`** — each rite is a self-contained executable that manages its tool's files using `RiteContext` operations. A single rite can mix `copy()` (source files in the rite dir) and `write()` (generated content) — the distinction is per-file, not per-rite. Arbitrary Python logic (merging, templating) can happen between calls. New modes are handled by `RiteContext`, not by changing rite scripts.
 - **`grimoire`** — orchestrator only. Handles prerequisites, profile, and dispatches to rite scripts with the right flags. If `grimoire` needs a separate script to do something, the responsibility is probably in the wrong place — it should be in the rite or in arcana.
 
-The `grimoire` bash wrapper has one job: make sure Python can run. Specifically it:
+The `grimoire` bash wrapper has one job: make sure Python can run. It sources Nix, installs Nix via the Determinate Systems installer if missing, creates the `~/.grimoire` symlink, and ensures `uv` is available (falling back to `nix shell` on first run).
 
-1. **Sources Nix** — sources the daemon profile and prepends `/run/current-system/sw/bin` to PATH
-2. **Installs Nix if missing** — via the Determinate Systems installer (interactive prompt)
-3. **Creates `~/.grimoire` symlink** — so the Python CLI can rely on a stable path
-4. **Ensures `uv` is available** — if `uv` isn't on PATH, execs Python inside `nix shell nixpkgs#uv` for that invocation. The `bootstrap` verb will install uv system-wide via `darwin-rebuild switch`, so subsequent invocations find it directly.
+The bash wrapper does **not** prompt for profile or run `darwin-rebuild`; both belong to Python. Keeping bash minimal means the verb semantics live in one place. For the exact implementation, read `grimoire` — it's short.
 
-The bash wrapper does **not** prompt for profile or run `darwin-rebuild`; both belong to Python. Keeping bash minimal means the verb semantics live in one place.
-
-The Python CLI exposes six verbs:
-
-- **`grimoire bootstrap`** — compound verb for fresh-machine setup. Runs `_apply_runes` + `_build_rites` in one invocation. Idempotent.
-- **`grimoire cast [TOOL ...]`** — apply rites. Optional positional args narrow to specific rites.
-  Flags: `--force`, `--dry-run`.
-- **`grimoire inscribe`** — apply runes (`darwin-rebuild switch` against the profile's flake output).
-  Flags: `--dry-run` (uses `darwin-rebuild build` — materializes but does not activate).
-- **`grimoire accept TOOL [TOOL ...]`** — pull external changes back into rite sources (`copy()`-managed files only).
-  Flags: `--dry-run`.
-- **`grimoire diff [TOOL]`** — inspect drift/cast/accept axes against the current tome.
-  Flags: `--drift` / `--cast` / `--accept`, `--build`, `--full`.
-- **`grimoire profile`** — show or change the machine profile (work/personal). Click group with subcommands `set NAME` and `unset`. Bare `grimoire profile` prints the current profile (exits 1 if unset).
-
-Rites and runes are independent — to apply both without `bootstrap`, chain: `grimoire inscribe && grimoire cast`. `bootstrap` is just syntactic sugar for that composition.
+The Python CLI exposes verbs for applying rites (`cast`), applying runes (`inscribe`), salvaging external changes into rite sources (`accept`), inspecting state (`diff`), managing the profile (`profile`), and a compound `bootstrap` that runs runes + rites for fresh machines. Rites and runes are independent — `bootstrap` is syntactic sugar for `inscribe && cast`. For per-verb usage and flags, see `grimoire --help` and `grimoire <verb> --help`.
 
 Profile is the source of truth in `~/.grimoire-profile` (plain text, single line). The `profile` group is ergonomic UI on top — power users can edit the file directly. Verbs that need the profile read it via `_resolve_profile()`, which prompts interactively if the file is missing.
 
 ## Directory Layout
 
 - `arcana/` — Python library and CLI entry point.
-- `runes/` — nix-darwin system configuration. `flake.nix` defines personal and work outputs; `configuration.nix` is the shared base; `personal.nix` and `work.nix` are profile overlays.
+- `runes/` — nix-darwin system configuration. A flake with one output per profile, a shared base, and per-profile overlays.
 - `rites/<tool>/` — source files and a `rite` script per tool. Each rite imports `RiteContext` and registers declarative ops (`copy`, `write`, `link`, `hook`); the CLI loads the rite module and executes the ops against `tome/`. Rites can also be invoked standalone for debugging: `./rites/<tool>/rite <profile> <grimoire_root> [--force] [--accept]`.
-- `cantrips/` — standalone executable scripts. Always present at `~/.grimoire/cantrips/` (via the `~/.grimoire` symlink). On `PATH` after the zsh rite applies — so `grimoire cast` + a new shell makes them directly invocable.
+- `cantrips/<tool>/` — standalone utility scripts, organized by the tool they relate to. Always present at `~/.grimoire/cantrips/` (via the `~/.grimoire` symlink). On `PATH` after the zsh rite applies — so `grimoire cast` + a new shell makes them directly invocable.
 - `tome/` — gitignored. Contains built config files ready for symlinking.
 - `.venv/` — gitignored. Managed by uv from `pyproject.toml`.
 
@@ -77,16 +73,13 @@ Profile is the source of truth in `~/.grimoire-profile` (plain text, single line
    ctx.link("config.yml", "~/.config/tool/config.yml")
    ```
    Space-separated for multiple profiles (`# profile: work personal`). Rites with no directive apply to every profile. The directive is the single source of truth: `_load_rite` raises `RiteSkipped` without importing the module if the current profile isn't in the allowed set, and shell-completion reads the same directive to filter incompatible rites from tab candidates. Accept mode bypasses the gate (to salvage files regardless of current profile).
-5. Update `README.md` — add the rite to the structure tree.
+5. If the rite introduces a user-visible concept or changes the cast/accept/drift model, update `README.md`. Adding another rite to an existing pattern does not require a README change — `rites/` is the source of truth for what's managed.
 
 **Accept mode note:** `grimoire accept` only round-trips `copy()`-managed files (copies the tome file back into the rite source dir). For `write()`-managed files, accept warns and skips — you must manually reconcile generated content.
 
 ## README Consistency
 
-After any structural change (adding/removing rites, cantrips, subcommand flags, or altering how any verb works), read `README.md` and verify these sections still match reality:
-- The directory structure tree
-- Per-verb sections (`cast`, `inscribe`, `accept`, `diff`, `profile`) — descriptions and flags
-Fix any inconsistencies before committing.
+`README.md` is user-facing and should stay coherent with the tool's behavior. After any change that alters user-visible behavior (new verbs, changed verb semantics, new/removed concepts, changes to the drift/cast/accept model), re-read `README.md` and update anything that now contradicts reality. Don't re-introduce fragile content: no enumerated file trees, no duplicated `--help` output, no per-package listings in `runes/` descriptions. Point users at `grimoire <verb> --help` or the source directories instead.
 
 ## Commit Safety
 
@@ -94,8 +87,8 @@ Before committing, always check that no secrets, credentials, tokens, API keys, 
 
 ## Conventions
 
-- Python `>=3.14`, with `click`, `detect-secrets`, and `tomlkit` as external dependencies (declared in `pyproject.toml`)
-- Profiles: `work` adds work-specific config (e.g. extra AeroSpace workspaces), `personal` is the base
+- Python version and external dependencies are declared in `pyproject.toml` (authoritative — don't duplicate the version here)
+- Profiles are machine identities; each profile selects a flake output for runes and may drive overlay selection in rites
 - Config merging: base files are the complete personal config; overlay files add to it. Arrays concatenate, dicts merge recursively.
 - Scripts follow the shebang convention — no file extensions, `chmod +x`
 - All symlinks point to `tome/` (gitignored), never to source files — protects tracked files from tools that auto-modify their config
@@ -104,11 +97,10 @@ Before committing, always check that no secrets, credentials, tokens, API keys, 
 
 | File | Purpose |
 |---|---|
-| `grimoire` | Bash wrapper: ensures nix + uv available, delegates to `arcana/cli.py` |
-| `arcana/cli.py` | Python CLI: `bootstrap`, `cast`, `inscribe`, `accept`, `diff`, `profile` subcommands |
-| `pyproject.toml` | uv project config, declares Python dependencies |
-| `arcana/tome.py` | Shared `RiteContext` class for rite scripts |
-| `runes/flake.nix` | Nix flake entrypoint (personal + work outputs) |
-| `runes/configuration.nix` | Shared nix-darwin base (packages, casks, fonts, macOS defaults) |
-| `runes/personal.nix` | Personal profile overlay (julia via Homebrew) |
-| `runes/work.nix` | Work profile overlay (awscli2, gh, golangci-lint, jq, kubectl via Nix; mysql-client@8.4 via Homebrew; typora via cask) |
+| `grimoire` | Bash wrapper: ensures Nix and uv are available, delegates to the Python CLI |
+| `arcana/cli.py` | Python CLI entry point; defines every verb |
+| `arcana/tome.py` | `RiteContext` — the API every rite uses |
+| `runes/flake.nix` | Nix flake entrypoint (one output per profile) |
+| `runes/configuration.nix` | Shared nix-darwin base, applied to every profile |
+| `runes/<profile>.nix` | Per-profile overlay (profile-specific packages and config) |
+| `pyproject.toml` | uv project config; declares Python version and dependencies |
