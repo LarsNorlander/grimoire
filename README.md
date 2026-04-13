@@ -102,6 +102,24 @@ A manifest (`tome/.manifest`) tracks content hashes of every built file. If a to
 - `grimoire cast --force` — overwrite and rebuild from source
 - `grimoire cast --accept <tool> [--accept <tool2> ...]` — pull the external changes back into the rite's source directory (only works for `copy()`-managed files; `write()` files need manual reconciliation since they're generated)
 
+### Inspecting drift
+
+`grimoire diff [<tool>]` shows how the current tome state compares along three axes — by default all three are shown in summary form:
+
+- **drift** — tome vs. manifest (what's changed on disk since last cast)
+- **cast** — tome vs. what a fresh rebuild would produce (what `grimoire cast` would change)
+- **accept** — tome vs. rite source (what `--accept` would pull back; `copy()`-managed files only)
+
+When the same file has both drift and pending cast changes, `diff` flags it as a potential conflict — both `cast --force` and `--accept` would each clobber something.
+
+Flags:
+
+- `--drift` / `--cast` / `--accept` — restrict to one or more axes (combinable)
+- `--build` — evaluate `--cast` for `write()` rites (re-runs their generators; otherwise shown as `?`)
+- `--full` — print unified diffs instead of summary status
+
+Exit codes: `0` no changes, `1` changes present, `2` error.
+
 ## Adding a New Config
 
 Create `rites/<tool>/` with your source files and a `rite` script (`chmod +x`). Use `copy()` for static files or `write()` with a builder for generated ones (see [How It Works](#how-it-works) above). `grimoire cast` discovers the new rite automatically on the next run.

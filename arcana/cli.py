@@ -9,7 +9,8 @@ from pathlib import Path
 
 import click
 
-from arcana.tome import RiteContext, RiteSkipped
+from arcana import diff as diff_mod
+from arcana.tome import RiteContext, RiteSkipped, load_manifest
 
 sys.dont_write_bytecode = True  # rite scripts are extension-less; no point caching
 
@@ -58,8 +59,13 @@ def _ensure_prerequisites() -> None:
     click.echo("  Dependencies: ok\n")
 
 
-def _run_rite(rite_path: Path, profile: str, force: bool, accepting: bool,
-              dry_run: bool = False) -> None:
+def _load_rite(rite_path: Path, profile: str, *,
+               force: bool = False, accepting: bool = False) -> RiteContext:
+    """Execute a rite module so its ops register on a new RiteContext.
+
+    Returns the populated context. Raises ``RiteSkipped`` if the rite self-skipped
+    via ``require_profile``; callers decide how to surface that.
+    """
     tool = rite_path.parent.name
     ctx = RiteContext(profile, GRIMOIRE_ROOT, tool, force=force, accepting=accepting)
     RiteContext._current = ctx
@@ -69,11 +75,18 @@ def _run_rite(rite_path: Path, profile: str, force: bool, accepting: bool,
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+    finally:
+        RiteContext._current = None
+    return ctx
+
+
+def _run_rite(rite_path: Path, profile: str, force: bool, accepting: bool,
+              dry_run: bool = False) -> None:
+    try:
+        ctx = _load_rite(rite_path, profile, force=force, accepting=accepting)
     except RiteSkipped as e:
         click.echo(e)
         return
-    finally:
-        RiteContext._current = None
     ctx.execute(dry_run=dry_run)
 
 
@@ -130,6 +143,82 @@ def cast(recast: bool, force: bool, accept: tuple[str, ...], dry_run: bool, only
         _ensure_prerequisites()
         _build_rites(profile, force, dry_run=dry_run)
     click.echo("Done.")
+
+
+@grimoire.command()
+@click.argument("tool", required=False)
+@click.option("--drift", "show_drift", is_flag=True,
+              help="Show drift: tome vs. manifest (local edits since last cast).")
+@click.option("--cast", "show_cast", is_flag=True,
+              help="Show cast preview: fresh rebuild vs. current tome.")
+@click.option("--accept", "show_accept", is_flag=True,
+              help="Show accept preview: tome vs. rite source.")
+@click.option("--build", is_flag=True,
+              help="Run write() generators so --cast can evaluate them.")
+@click.option("--full", is_flag=True,
+              help="Show unified-diff content instead of a summary.")
+@click.pass_context
+def diff(cli_ctx: click.Context, tool: str | None,
+         show_drift: bool, show_cast: bool, show_accept: bool,
+         build: bool, full: bool) -> None:
+    """Show how tome state differs from manifest, fresh rebuild, or rite sources."""
+    if not PROFILE_FILE.exists():
+        click.echo("ERROR: no profile set — run `grimoire cast` first.", err=True)
+        cli_ctx.exit(2)
+    profile = PROFILE_FILE.read_text().strip()
+
+    if build:
+        _ensure_prerequisites()
+
+    selected = {
+        d for d, on in [
+            (diff_mod.Direction.DRIFT, show_drift),
+            (diff_mod.Direction.CAST, show_cast),
+            (diff_mod.Direction.ACCEPT, show_accept),
+        ]
+        if on
+    } or set(diff_mod.Direction)
+
+    if tool:
+        rite_path = GRIMOIRE_ROOT / "rites" / tool / "rite"
+        if not rite_path.is_file():
+            click.echo(f"ERROR: no rite for '{tool}'", err=True)
+            cli_ctx.exit(2)
+        rite_paths = [rite_path]
+    else:
+        rite_paths = sorted(GRIMOIRE_ROOT.glob("rites/*/rite"))
+
+    manifest = load_manifest(GRIMOIRE_ROOT / "tome")
+    results = []
+    errors: list[tuple[str, Exception]] = []
+    for rite_path in rite_paths:
+        if not os.access(rite_path, os.X_OK):
+            continue
+        try:
+            ctx = _load_rite(rite_path, profile)
+        except RiteSkipped:
+            continue
+        except Exception as e:
+            errors.append((rite_path.parent.name, e))
+            continue
+        for plan in diff_mod.plan_rite(ctx, build=build):
+            results.append(diff_mod.compute_diff(plan, manifest, build))
+
+    output = (
+        diff_mod.format_full(results, selected)
+        if full
+        else diff_mod.format_summary(results, selected)
+    )
+    click.echo(output)
+
+    if errors:
+        click.echo()
+        for tool_name, err in errors:
+            click.echo(f"  ERROR in {tool_name}: {err}", err=True)
+        cli_ctx.exit(2)
+
+    any_changes = any(not r.is_clean_in(selected) for r in results)
+    cli_ctx.exit(1 if any_changes else 0)
 
 
 if __name__ == "__main__":

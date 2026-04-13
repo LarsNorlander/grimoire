@@ -29,7 +29,7 @@ def _scan_for_secrets(path: Path) -> list[dict]:
     return found
 
 
-def _load_manifest(tome_root: Path) -> dict[str, str]:
+def load_manifest(tome_root: Path) -> dict[str, str]:
     manifest_path = tome_root / MANIFEST_FILENAME
     if not manifest_path.exists():
         return {}
@@ -88,7 +88,7 @@ class RiteContext:
         self.rite_dir = grimoire_root / "rites" / tool
         self.tome_dir = grimoire_root / "tome" / tool
         self._tome_root = grimoire_root / "tome"
-        self._manifest = _load_manifest(self._tome_root)
+        self._manifest = load_manifest(self._tome_root)
         self._dirty = False
         self._ops: list[CopyOp | WriteOp | LinkOp | HookOp] = []
 
