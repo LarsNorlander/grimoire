@@ -7,7 +7,5 @@ in pkgs.mkShell {
 
   shellHook = ''
     export GRIMOIRE_FAMILIAR=elixir
-    export ELIXIR_EDITOR="zed --wait"
-    echo "Elixir familiar summoned. Type 'exit' to dismiss."
   '';
 }
