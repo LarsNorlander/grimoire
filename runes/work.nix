@@ -5,6 +5,7 @@
     golangci-lint
     jq
     kubectl
+    bun
   ];
 
   homebrew.brews = [
