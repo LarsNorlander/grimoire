@@ -1,16 +1,12 @@
-persistent-workspaces = ["Discord", "Chrome"]
+persistent-workspaces = ["Discord"]
 
 [mode.main.binding]
-    alt-4 = 'workspace Chrome'
     alt-5 = 'workspace Discord'
-    alt-shift-4 = ['move-node-to-workspace Chrome', 'workspace Chrome']
     alt-shift-5 = ['move-node-to-workspace Discord', 'workspace Discord']
 
 [mode.service.binding]
     # Entries to insert into 'd' before the exit commands
     d = [
-        'move-workspace-to-monitor --workspace Chrome main',
         'move-workspace-to-monitor --workspace Discord secondary',
         'workspace Discord',
-        'workspace Chrome',
     ]
