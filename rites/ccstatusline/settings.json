@@ -30,7 +30,7 @@
       {
         "id": "66b42da4-eb58-4d8b-877f-9c48c37f515f",
         "type": "model",
-        "color": "brightGreen",
+        "color": "brightRed",
         "rawValue": true
       },
       {
@@ -39,7 +39,7 @@
       },
       {
         "id": "273a9e3a-051d-485d-a560-592e263412db",
-        "type": "thinking-effort",
+        "type": "total-speed",
         "color": "magenta",
         "rawValue": true
       },
@@ -57,13 +57,76 @@
         }
       }
     ],
-    []
+    [
+      {
+        "id": "ae879519-f498-4669-91f9-d9e2270d5d07",
+        "type": "session-cost",
+        "color": "brightGreen",
+        "rawValue": true
+      },
+      {
+        "id": "867dd3ed-b96a-4282-bea4-acef3fa7a138",
+        "type": "separator"
+      },
+      {
+        "id": "39f48830-a442-44a6-b4a4-d3d02eee97a8",
+        "type": "session-usage",
+        "color": "blue",
+        "rawValue": true,
+        "merge": "no-padding",
+        "metadata": {
+          "display": "time"
+        }
+      },
+      {
+        "id": "943f3cdb-2629-4209-bc43-09875da9f988",
+        "type": "custom-symbol",
+        "customSymbol": " ",
+        "merge": "no-padding"
+      },
+      {
+        "id": "a3433610-0c8c-4a0e-ada4-258a28b201d0",
+        "type": "reset-timer",
+        "rawValue": true,
+        "metadata": {
+          "compact": "false"
+        },
+        "color": "brightBlue"
+      },
+      {
+        "id": "41a5200c-ce1f-4461-b127-bc2f38326cc2",
+        "type": "separator"
+      },
+      {
+        "id": "d0548ebe-0682-448f-bc64-cc2c58e15b5c",
+        "type": "weekly-usage",
+        "color": "blue",
+        "rawValue": true,
+        "merge": "no-padding"
+      },
+      {
+        "id": "df2d391f-3307-4869-812a-a642214f8f73",
+        "type": "custom-symbol",
+        "customSymbol": " ",
+        "merge": "no-padding"
+      },
+      {
+        "id": "1bbec445-1d3e-4519-a640-693aa7d97ec7",
+        "type": "weekly-reset-timer",
+        "rawValue": true,
+        "metadata": {
+          "compact": "false"
+        },
+        "color": "brightBlue"
+      }
+    ]
   ],
   "flexMode": "full-minus-40",
   "compactThreshold": 60,
   "colorLevel": 1,
   "inheritSeparatorColors": false,
   "globalBold": false,
+  "minimalistMode": false,
   "powerline": {
     "enabled": false,
     "separators": [
@@ -74,6 +137,7 @@
     ],
     "startCaps": [],
     "endCaps": [],
-    "autoAlign": false
+    "autoAlign": false,
+    "continueThemeAcrossLines": false
   }
 }

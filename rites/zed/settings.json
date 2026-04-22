@@ -8,8 +8,10 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "terminal": {
-    "font_family": "JetBrainsMono Nerd Font",
+    "cursor_shape": "bar",
+    "font_family": "JetBrainsMono Nerd Font"
   },
+  "buffer_font_family": "JetBrainsMono Nerd Font",
   "restore_on_startup": "launchpad",
   "session": {
     "trust_all_worktrees": true,
