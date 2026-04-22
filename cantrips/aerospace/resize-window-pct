@@ -17,8 +17,28 @@ function run(argv) {
         throw new Error('Dimension must be "width" or "height"')
     }
 
-    // Get focused monitor's visible frame (excludes menu bar and dock)
-    var visibleFrame = $.NSScreen.mainScreen.visibleFrame.size
+    var app = Application.currentApplication()
+    app.includeStandardAdditions = true
+
+    // Resolve the AeroSpace-focused monitor to its NSScreen.
+    // `NSScreen.mainScreen` is the screen with the key window, which is not
+    // the focused AeroSpace monitor — it typically falls back to the primary
+    // display. AeroSpace emits the matching NSScreen.screens index (1-based)
+    // via %{monitor-appkit-nsscreen-screens-id}.
+    var screens = $.NSScreen.screens
+    var visibleFrame = screens.objectAtIndex(0).visibleFrame.size
+    try {
+        var idxStr = app.doShellScript(
+            '/opt/homebrew/bin/aerospace list-monitors --focused ' +
+            "--format '%{monitor-appkit-nsscreen-screens-id}'"
+        )
+        var idx = parseInt(idxStr, 10) - 1
+        if (idx >= 0 && idx < screens.count) {
+            visibleFrame = screens.objectAtIndex(idx).visibleFrame.size
+        }
+    } catch (e) {
+        // Fall back to first screen if aerospace can't be queried
+    }
 
     // Read outer gaps from aerospace config (defaults if unreadable)
     var gaps = { left: 8, right: 8, top: 8, bottom: 8 }
@@ -44,7 +64,5 @@ function run(argv) {
         : visibleFrame.height - gaps.top - gaps.bottom
     var target = Math.round(reference * pct / 100)
 
-    var app = Application.currentApplication()
-    app.includeStandardAdditions = true
     app.doShellScript('/opt/homebrew/bin/aerospace resize ' + dimension + ' ' + target)
 }

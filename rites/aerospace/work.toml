@@ -3,16 +3,16 @@ persistent-workspaces = ["Slack", "Notion", "Chrome"]
 [mode.main.binding]
     alt-5 = 'workspace Slack'
     alt-8 = 'workspace Notion'
+    alt-9 = 'workspace Chrome'
     alt-shift-5 = ['move-node-to-workspace Slack', 'workspace Slack']
     alt-shift-8 = ['move-node-to-workspace Notion', 'workspace Notion']
-    alt-9 = 'workspace Chrome'
     alt-shift-9 = ['move-node-to-workspace Chrome', 'workspace Chrome']
 
 [mode.service.binding]
     # Entries to insert into 'd' before the exit commands
     d = [
-        'move-workspace-to-monitor --workspace Slack secondary',
-        'move-workspace-to-monitor --workspace Notion secondary',
-        'move-workspace-to-monitor --workspace Chrome secondary',
+        'move-workspace-to-monitor --workspace Slack secondary "Built-in Retina Display" 2',
+        'move-workspace-to-monitor --workspace Notion secondary "Built-in Retina Display" 2',
+        'move-workspace-to-monitor --workspace Chrome secondary "Built-in Retina Display" 2',
         'workspace Workbench',
     ]
