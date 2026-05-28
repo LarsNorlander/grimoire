@@ -1,6 +1,6 @@
 [user]
 	name = Lars Norlander
-	email = lars.nrlndr@gmail.com
+	email = hello@larsnorlander.dev
 	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBXoFaQ8cfJvcD+e76x8A4ak1vbN+TFHHaJHCq0mQcO
 
 [alias]
