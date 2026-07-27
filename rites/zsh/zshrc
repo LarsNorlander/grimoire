@@ -20,3 +20,9 @@ source "$ZSH/oh-my-zsh.sh"
 
 # Starship — must follow oh-my-zsh to override PROMPT
 eval "$(starship init zsh)"
+
+# Ghostty shell integration — auto-injected only in the shell Ghostty spawns
+# directly, so shells inside tmux need this manual source (no-op elsewhere)
+if [ -n "${GHOSTTY_RESOURCES_DIR}" ]; then
+  builtin source "${GHOSTTY_RESOURCES_DIR}/shell-integration/zsh/ghostty-integration"
+fi

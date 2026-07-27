@@ -1,8 +1,6 @@
 # Font
 font-family = JetBrainsMono Nerd Font
 font-size = 14
-font-feature = calt
-font-feature = liga
 
 # Colors — cyanotype charcoal scheme
 background = #1f2022
@@ -45,7 +43,8 @@ focus-follows-mouse = true
 copy-on-select = true
 mouse-hide-while-typing = true
 confirm-close-surface = false
-shell-integration-features = no-title
+macos-option-as-alt = true
+shell-integration-features = no-title,ssh-env,ssh-terminfo
 
-# SSH
-shell-integration-features = ssh-env,ssh-terminfo
+# Updates are managed by Homebrew via runes — keep the in-app updater off
+auto-update = off
