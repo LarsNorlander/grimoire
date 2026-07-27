@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+# profile: work
+
+from arcana.tome import RiteContext
+
+ctx = RiteContext.from_args()
+ctx.copy("tmux.conf")
+ctx.link("tmux.conf", "~/.config/tmux/tmux.conf")

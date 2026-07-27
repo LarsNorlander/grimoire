@@ -1,5 +1,10 @@
 # Work profile additions — managed by grimoire
 
+# tmux — bare terminals attach to a shared session; IDE panels and nested shells stay plain zsh
+if [[ -z "$TMUX" && "$TERM_PROGRAM" == "ghostty" ]] && command -v tmux >/dev/null 2>&1; then
+  exec tmux new-session -A -s main
+fi
+
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/larsnorlander/.lmstudio/bin"
 # End of LM Studio CLI section
