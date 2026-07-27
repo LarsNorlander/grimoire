@@ -4,8 +4,6 @@
   # Determinate manages the Nix installation; disable nix-darwin's management
   nix.enable = false;
 
-  environment.variables.NPM_CONFIG_PREFIX = "$HOME/.npm-global";
-
   # CLI tools — replaces brew formulae
   environment.systemPackages = with pkgs; [
     uv           # Python package manager (used by cast)
@@ -13,7 +11,6 @@
     btop         # system monitor
     fastfetch    # system info
     neovim
-    nodejs       # global Node.js
     go
     starship     # prompt (binary here, config via rite)
   ];

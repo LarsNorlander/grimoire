@@ -1,6 +1,5 @@
 { pkgs, ... }: {
   environment.systemPackages = with pkgs; [
-    awscli2
     gh
     golangci-lint
     jq
@@ -8,11 +7,18 @@
     bun
   ];
 
-  homebrew.brews = [
-    "mysql-client@8.4"
-  ];
-
-  homebrew.casks = [
-    "typora"
-  ];
+  homebrew = {
+    brews = [
+      "awscli"
+      "nvm"
+      "gitleaks"
+      "mysql-client@8.4"
+      "tmux"
+      "yarn"
+    ];
+    casks = [
+      "session-manager-plugin"
+      "typora"
+    ];
+  };
 }
