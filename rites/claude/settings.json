@@ -1,33 +1,4 @@
 {
-  "statusLine": {
-    "type": "command",
-    "command": "npx -y ccstatusline@latest",
-    "padding": 0
-  },
-  "enabledPlugins": {
-    "commit-commands@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-md-management@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "playground@claude-plugins-official": true
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.grimoire/cantrips/claude/block-destructive-git",
-            "timeout": 5000
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(grep:*)",
@@ -66,6 +37,41 @@
       "Read(*.pem)",
       "Read(*credentials*)",
       "Read(*secret*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.grimoire/cantrips/claude/block-destructive-git",
+            "timeout": 5000
+          }
+        ]
+      }
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "ccstatusline",
+    "padding": 0,
+    "refreshInterval": 10
+  },
+  "enabledPlugins": {
+    "commit-commands@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "playground@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "code-review@claude-code-plugins": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "tui": "fullscreen",
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true
 }

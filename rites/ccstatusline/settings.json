@@ -87,11 +87,11 @@
       {
         "id": "a3433610-0c8c-4a0e-ada4-258a28b201d0",
         "type": "reset-timer",
+        "color": "brightBlue",
         "rawValue": true,
         "metadata": {
           "compact": "false"
-        },
-        "color": "brightBlue"
+        }
       },
       {
         "id": "41a5200c-ce1f-4461-b127-bc2f38326cc2",
@@ -113,11 +113,11 @@
       {
         "id": "1bbec445-1d3e-4519-a640-693aa7d97ec7",
         "type": "weekly-reset-timer",
+        "color": "brightBlue",
         "rawValue": true,
         "metadata": {
           "compact": "false"
-        },
-        "color": "brightBlue"
+        }
       }
     ]
   ],
@@ -126,6 +126,7 @@
   "colorLevel": 1,
   "inheritSeparatorColors": false,
   "globalBold": false,
+  "gitCacheTtlSeconds": 5,
   "minimalistMode": false,
   "powerline": {
     "enabled": false,
