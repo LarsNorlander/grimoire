@@ -3,4 +3,4 @@ from arcana.tome import RiteContext
 
 ctx = RiteContext.from_args()
 ctx.copy("gitconfig")
-ctx.link("gitconfig", "~/.gitconfig")
+ctx.link("gitconfig", "~/.config/git/config")

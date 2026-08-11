@@ -44,7 +44,7 @@ function run(argv) {
     var gaps = { left: 8, right: 8, top: 8, bottom: 8 }
     try {
         var configPath = $.NSString.stringWithString(
-            '~/.aerospace.toml'
+            '~/.config/aerospace/aerospace.toml'
         ).stringByExpandingTildeInPath.js
         var config = $.NSString.stringWithContentsOfFileEncodingError(
             configPath, $.NSUTF8StringEncoding, null

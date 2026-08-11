@@ -57,4 +57,4 @@ def build_aerospace(*, profile, rite_dir, **_):
 
 ctx = RiteContext.from_args()
 ctx.write("aerospace.toml", build_aerospace)
-ctx.link("aerospace.toml", "~/.aerospace.toml")
+ctx.link("aerospace.toml", "~/.config/aerospace/aerospace.toml")
