@@ -1,0 +1,40 @@
+" -- Basic Configuration
+
+let mapleader = " "
+set relativenumber
+
+set scrolloff=5
+set incsearch
+
+map Q gq
+
+" -- Plugins
+
+" Highlight copied text
+Plug 'machakann/vim-highlightedyank'
+" Commentary plugin
+Plug 'tpope/vim-commentary'
+
+" --- WhichKey
+set which-key
+set notimeout
+
+" -- Custom Mappings
+map \r <Action>(ReformatCode)
+map \b <Action>(ToggleLineBreakpoint)
+
+" --- Goto
+map gd <Action>(GotoDeclaration)
+
+" --- Navigation
+map <leader><Tab> <C-6>
+let g:WhichKeyDesc_previous_file = "<leader><Tab> Previous File"
+
+" --- Windows
+map <leader>wp <Action>(ActivateProjectToolWindow)
+map <leader>wt <Action>(ActivateTerminalToolWindow)
+
+" --- Find
+map <leader>ff <Action>(GotoFile)
+map <leader>fr <Action>(RecentFiles)
+map <leader><leader> <Action>(SearchEverywhere)
