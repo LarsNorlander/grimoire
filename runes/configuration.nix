@@ -23,7 +23,14 @@
   homebrew = {
     enable = true;
     onActivation.cleanup = "zap";
-    taps = [ "nikitabobko/tap" ];
+    # Homebrew 6 refuses to load casks/formulae from untrusted third-party taps;
+    # `trusted` adds `trusted: true` to the Brewfile entry so activation doesn't abort.
+    taps = [
+      {
+        name = "nikitabobko/tap";
+        trusted = true;
+      }
+    ];
     brews = [ "julia" ];
     casks = [
       "aerospace"
