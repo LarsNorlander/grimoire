@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
+import subprocess
+from pathlib import Path
+
 from arcana.tome import RiteContext
 
+# ccstatusline is npm-only (absent from nixpkgs/homebrew). The bare
+# `ccstatusline` command in Claude's settings.json is the documented
+# "pinned global install" path; install it here if missing, mirroring
+# how the zsh rite bootstraps oh-my-zsh. ~/.npm-global/bin is on PATH
+# (see rites/zsh/zshrc), and npm's own prefix is the read-only nix store,
+# so target the writable prefix explicitly.
+def install_ccstatusline():
+    prefix = Path.home() / ".npm-global"
+    if not (prefix / "bin" / "ccstatusline").exists():
+        subprocess.run(
+            ["npm", "install", "-g", "--prefix", str(prefix), "ccstatusline"],
+            check=True,
+        )
+
+
 ctx = RiteContext.from_args()
+ctx.hook("install ccstatusline", install_ccstatusline)
 ctx.copy("settings.json")
 ctx.link("settings.json", "~/.config/ccstatusline/settings.json")
