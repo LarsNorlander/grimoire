@@ -6,12 +6,9 @@
 
   # CLI tools — replaces brew formulae
   environment.systemPackages = with pkgs; [
-    uv           # Python package manager (used by cast)
     bat          # cat replacement
     btop         # system monitor
     fastfetch    # system info
-    neovim
-    go
     starship     # prompt (binary here, config via rite)
   ];
 
@@ -31,9 +28,13 @@
         trusted = true;
       }
     ];
+    # On Homebrew (not pinned nixpkgs) for a faster release cadence.
     brews = [
       "julia"
       "nvm"
+      "uv"         # Python package manager (used by cast); Astral ships weekly
+      "neovim"     # track recent stable for modern plugin APIs
+      "go"         # current toolchain for active Go work
     ];
     casks = [
       "aerospace"
