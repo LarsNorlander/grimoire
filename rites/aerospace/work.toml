@@ -11,8 +11,8 @@ persistent-workspaces = ["Slack", "Notion", "Chrome"]
 [mode.service.binding]
     # Entries to insert into 'd' before the exit commands
     d = [
-        'move-workspace-to-monitor --workspace Slack secondary "Built-in Retina Display" 2',
-        'move-workspace-to-monitor --workspace Notion secondary "Built-in Retina Display" 2',
-        'move-workspace-to-monitor --workspace Chrome secondary "Built-in Retina Display" 2',
+        'move-workspace-to-monitor --workspace Slack built-in main',
+        'move-workspace-to-monitor --workspace Notion built-in main',
+        'move-workspace-to-monitor --workspace Chrome built-in main',
         'workspace Workbench',
     ]

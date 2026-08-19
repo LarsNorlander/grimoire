@@ -7,6 +7,6 @@ persistent-workspaces = ["Discord"]
 [mode.service.binding]
     # Entries to insert into 'd' before the exit commands
     d = [
-        'move-workspace-to-monitor --workspace Discord secondary "Built-in Retina Display" 2',
+        'move-workspace-to-monitor --workspace Discord built-in main',
         'workspace Discord',
     ]
