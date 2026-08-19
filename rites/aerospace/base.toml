@@ -130,9 +130,9 @@ on-mode-changed = []
     # choice that moves, and `secondary` only resolves with exactly two monitors.
     d = [
         'move-workspace-to-monitor --workspace TTY dell LS34A650U main',
-        'move-workspace-to-monitor --workspace Workbench LS34A650U main',
-        'move-workspace-to-monitor --workspace Sideboard LS34A650U main',
-        'move-workspace-to-monitor --workspace Scratch LS34A650U main',
+        'move-workspace-to-monitor --workspace Workbench LS34A650U U4025QW main',
+        'move-workspace-to-monitor --workspace Sideboard LS34A650U U4025QW main',
+        'move-workspace-to-monitor --workspace Scratch LS34A650U U4025QW main',
         'move-workspace-to-monitor --workspace Desk built-in main',
         'move-workspace-to-monitor --workspace Claude built-in main',
         'move-workspace-to-monitor --workspace Music built-in main',
