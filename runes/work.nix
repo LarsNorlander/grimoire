@@ -10,7 +10,6 @@
   homebrew = {
     brews = [
       "awscli"
-      "nvm"
       "gitleaks"
       "mysql-client@8.4"
       "tmux"

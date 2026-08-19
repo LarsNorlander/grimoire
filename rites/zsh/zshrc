@@ -16,6 +16,13 @@ fpath=("$HOME/.config/zsh/completions" $fpath)
 [[ -f ~/.config/zsh/secrets.zsh ]] && source ~/.config/zsh/secrets.zsh
 [[ -f ~/.config/zsh/profile.zsh ]] && source ~/.config/zsh/profile.zsh
 
+# nvm — node is managed by nvm on every profile (installed via Homebrew).
+# Guards are no-ops until `brew install nvm` has run, so this is safe on a
+# fresh machine before the runes are inscribed.
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
 source "$ZSH/oh-my-zsh.sh"
 
 # Starship — must follow oh-my-zsh to override PROMPT

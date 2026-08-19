@@ -31,7 +31,10 @@
         trusted = true;
       }
     ];
-    brews = [ "julia" ];
+    brews = [
+      "julia"
+      "nvm"
+    ];
     casks = [
       "aerospace"
       "scroll-reverser"
