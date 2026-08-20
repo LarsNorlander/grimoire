@@ -27,6 +27,10 @@
         name = "nikitabobko/tap";
         trusted = true;
       }
+      {
+        name = "felixkratz/formulae";
+        trusted = true;
+      }
     ];
     # On Homebrew (not pinned nixpkgs) for a faster release cadence.
     brews = [
@@ -35,6 +39,7 @@
       "uv"         # Python package manager (used by cast); Astral ships weekly
       "neovim"     # track recent stable for modern plugin APIs
       "go"         # current toolchain for active Go work
+      "borders"    # JankyBorders: window borders; tinted per AeroSpace mode
     ];
     casks = [
       "aerospace"

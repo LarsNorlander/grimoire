@@ -2,7 +2,10 @@
 config-version = 2
 
 # Available commands : https://nikitabobko.github.io/AeroSpace/commands
-after-startup-command = []
+# Start JankyBorders hidden. It stays running so it can track the focused
+# window, and the tint-borders cantrip makes it visible only while a temporary
+# binding mode (service/arrange) is active.
+after-startup-command = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main']
 
 # Start AeroSpace at login
 start-at-login = true
@@ -65,6 +68,14 @@ on-mode-changed = []
 [key-mapping]
     preset = 'qwerty'
 
+# AeroSpace is launched by launchd at login, so exec-* commands inherit the
+# launchd PATH, which lacks Homebrew. Prepend it so callbacks can find brew
+# binaries by name. Absolute paths are still used below for anything critical.
+[exec]
+    inherit-env-vars = true
+    [exec.env-vars]
+        PATH = '/opt/homebrew/bin:${PATH}'
+
 # Gaps between windows (inner-*) and between monitor edges (outer-*).
 [gaps]
     inner.horizontal = 8
@@ -114,14 +125,14 @@ on-mode-changed = []
     alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 
     # See: https://nikitabobko.github.io/AeroSpace/commands#mode
-    alt-shift-semicolon = 'mode service'
-    alt-a = 'mode arrange'
+    alt-shift-semicolon = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders service', 'mode service']
+    alt-a = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders arrange', 'mode arrange']
 
 [mode.service.binding]
     # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
-    esc = ['reload-config', 'mode main']
-    r = ['flatten-workspace-tree', 'mode main'] # reset layout
-    f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+    esc = ['reload-config', 'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main']
+    r = ['flatten-workspace-tree', 'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main'] # reset layout
+    f = ['layout floating tiling', 'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main'] # Toggle between floating and tiling layout
 
     # reset workspace-to-monitor layout.
     # Monitors are matched by case-insensitive substring, first match wins, so
@@ -136,6 +147,7 @@ on-mode-changed = []
         'move-workspace-to-monitor --workspace Desk built-in main',
         'move-workspace-to-monitor --workspace Claude built-in main',
         'move-workspace-to-monitor --workspace Music built-in main',
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main',
         'mode main',
     ]
 
@@ -208,4 +220,4 @@ on-mode-changed = []
     f = ['layout floating tiling']
 
     # exit
-    esc = 'mode main'
+    esc = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main']

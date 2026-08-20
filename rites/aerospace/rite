@@ -22,10 +22,18 @@ def merge_into_table(base_table, overlay_table):
 
 
 def merge_service_d(base_binding, work_d_entries):
-    """Insert work 'd' entries before the trailing exit commands."""
-    current = base_binding["d"]
-    body = list(current[:-1])
-    tail = list(current[-1:])
+    """Insert work 'd' entries before the trailing exit commands.
+
+    The tail is everything after the last move-workspace-to-monitor command
+    (the borders reset and the mode switch), so profile entries land with the
+    other monitor moves regardless of how many exit commands there are.
+    """
+    current = [str(x) for x in base_binding["d"]]
+    split = max(
+        i for i, cmd in enumerate(current)
+        if cmd.startswith("move-workspace-to-monitor")
+    ) + 1
+    body, tail = current[:split], current[split:]
     merged = tomlkit.array(body + list(work_d_entries) + tail)
     merged.multiline(True)
     base_binding["d"] = merged
