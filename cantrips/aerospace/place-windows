@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Send windows to a home workspace, unless they're already somewhere tolerated.
+#
+# Usage: place-windows <bundle-id>=<home>[+<tolerated>...] ...
+#
+# The first workspace in a rule is home; the rest are places the window is
+# allowed to stay. A window outside the whole set moves to home. Single-
+# workspace rules therefore mean "always here", which is why one syntax covers
+# both cases:
+#
+#   com.spotify.client=Music              always Music
+#   com.mitchellh.ghostty=TTY+Workbench   TTY, but left alone on Workbench
+#
+# AeroSpace's on-window-detected callbacks only fire when a window is created,
+# so this is how a running session gets re-sorted.
+
+set -uo pipefail
+
+# One query, filtered in-process: --monitor all conflicts with --app-bundle-id,
+# so per-app filtering would mean a subprocess per rule.
+windows=$(aerospace list-windows --monitor all \
+    --format '%{window-id}|%{app-bundle-id}|%{workspace}') || exit 1
+
+status=0
+
+for rule in "$@"; do
+    case $rule in
+        *=*) ;;
+        *) echo "place-windows: not a <bundle>=<workspace> rule: $rule" >&2
+           status=1; continue ;;
+    esac
+
+    bundle=${rule%%=*}
+    allowed=${rule#*=}
+    home=${allowed%%+*}
+
+    if [ -z "$bundle" ] || [ -z "$home" ]; then
+        echo "place-windows: incomplete rule: $rule" >&2
+        status=1; continue
+    fi
+
+    # Heredoc rather than a pipe: a pipe would run the loop in a subshell and
+    # drop every $status update.
+    while IFS='|' read -r id app workspace; do
+        [ "$app" = "$bundle" ] || continue
+        case "+$allowed+" in
+            *"+$workspace+"*) continue ;;
+        esac
+        aerospace move-node-to-workspace --window-id "$id" "$home" || status=1
+    done <<WINDOWS
+$windows
+WINDOWS
+done
+
+exit $status

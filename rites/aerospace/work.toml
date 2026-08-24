@@ -14,5 +14,6 @@ persistent-workspaces = ["Slack", "Notion", "Chrome"]
         'move-workspace-to-monitor --workspace Slack built-in main',
         'move-workspace-to-monitor --workspace Notion built-in main',
         'move-workspace-to-monitor --workspace Chrome built-in main',
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.tinyspeck.slackmacgap=Slack notion.id=Notion com.google.Chrome=Chrome+Workbench',
         'workspace Workbench',
     ]

@@ -8,5 +8,6 @@ persistent-workspaces = ["Discord"]
     # Entries to insert into 'd' before the exit commands
     d = [
         'move-workspace-to-monitor --workspace Discord built-in main',
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.hnc.Discord=Discord',
         'workspace Discord',
     ]

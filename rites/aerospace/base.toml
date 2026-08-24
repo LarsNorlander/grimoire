@@ -134,7 +134,7 @@ on-mode-changed = []
     r = ['flatten-workspace-tree', 'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main'] # reset layout
     f = ['layout floating tiling', 'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main'] # Toggle between floating and tiling layout
 
-    # reset workspace-to-monitor layout.
+    # reset workspace and window placement.
     # Monitors are matched by case-insensitive substring, first match wins, so
     # each entry names the preferred display and falls back to `main`. Don't rely
     # on `main`/`secondary` alone: which display is 'main' is a System Settings
@@ -147,9 +147,10 @@ on-mode-changed = []
         'move-workspace-to-monitor --workspace Desk built-in main',
         'move-workspace-to-monitor --workspace Claude built-in main',
         'move-workspace-to-monitor --workspace Music built-in main',
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.spotify.client=Music com.anthropic.claudefordesktop=Claude com.mitchellh.ghostty=TTY+Workbench company.thebrowser.dia=Sideboard+Workbench dev.zed.Zed=Workbench com.jetbrains.WebStorm=Workbench',
         'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main',
         'mode main',
-    ]
+    ] # workspaces back to their monitors, stray windows back to their homes
 
 [mode.arrange.binding]
     # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
