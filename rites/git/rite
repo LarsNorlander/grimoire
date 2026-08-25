@@ -1,6 +1,52 @@
 #!/usr/bin/env python3
+"""Applies gitconfig, and derives an alias cheatsheet from that same file.
+
+Only `[alias]` is worth a sheet: the rest of the file is behaviour (signing,
+URL rewriting, push defaults), not something you type.
+"""
+
+import re
+
+from arcana.docs import DocEntry, DocPage, DocSection
 from arcana.tome import RiteContext
+
+_SECTION = re.compile(r"^\s*\[(?P<name>[^\]\s]+)")
+
+
+def _entries(text: str) -> list[DocEntry]:
+    """Every `[alias]` assignment, in file order."""
+    entries: list[DocEntry] = []
+    in_aliases = False
+
+    for raw in text.splitlines():
+        if match := _SECTION.match(raw):
+            in_aliases = match.group("name") == "alias"
+            continue
+        line = raw.strip()
+        if not in_aliases or not line or line.startswith("#") or "=" not in line:
+            continue
+
+        name, expansion = (part.strip() for part in line.split("=", 1))
+        # A `!`-prefixed alias runs a shell command rather than a git one, so
+        # only the plain ones can be described as `git <expansion>`.
+        description = (expansion.lstrip("!").strip() if expansion.startswith("!")
+                       else f"git {expansion}")
+        entries.append(DocEntry(keys=f"git {name}", description=description))
+    return entries
+
+
+def build_docs(*, rite_dir, **_) -> DocPage:
+    entries = _entries((rite_dir / "gitconfig").read_text())
+    return DocPage(
+        title="git",
+        summary="Aliases configured on this machine.",
+        tags=["git", "shell"],
+        source="rites/git/gitconfig",
+        sections=[DocSection(title="Aliases", entries=entries)],
+    )
+
 
 ctx = RiteContext.from_args()
 ctx.copy("gitconfig")
 ctx.link("gitconfig", "~/.config/git/config")
+ctx.doc(build_docs)
