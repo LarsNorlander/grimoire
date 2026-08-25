@@ -17,7 +17,7 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 
 `bootstrap` is the end-to-end provisioning verb. The bash wrapper makes sure Nix and `uv` are available, then hands off to Python. `bootstrap` prompts for profile, applies runes (system packages, casks, fonts, macOS defaults via `darwin-rebuild switch`), then applies all rites. After the zsh rite runs, `~/.grimoire` is on `PATH`, so from the next shell onward you can use `grimoire` directly.
 
-`bootstrap` is idempotent — safe to re-run. After the initial bootstrap, use the narrower verbs (`cast`, `inscribe`, `accept`, `diff`) for day-to-day work.
+`bootstrap` is idempotent — safe to re-run. After the initial bootstrap, use the narrower verbs (`cast`, `inscribe`, `accept`, `diff`, `scribe`) for day-to-day work.
 
 ### `grimoire cast` — apply rites
 
@@ -40,6 +40,20 @@ Run a single command inside a familiar without entering the shell:
     grimoire summon aws -- aws s3 ls
 
 Rule of thumb: if a tool's config lives in `~/.config/...` and you want it managed, that's a rite (persistent). If all you need is the binary on `PATH` plus env vars, it's a familiar.
+
+### `grimoire scribe` — generate cheatsheets
+
+Rites can document themselves. A rite that calls `ctx.doc(builder)` returns *data* — sections of (keys, description) pairs — and `scribe` writes one JSON file per documented tool. Rites that don't call `ctx.doc()` produce no sheet.
+
+Grimoire produces the data and stops there; rendering belongs to [homepage](https://github.com/LarsNorlander/homepage), which reads these files and serves them. The files follow homepage's `schemas/cheatsheet.schema.json`, and `arcana/docs.py` mirrors that schema field for field — the reader rejects unknown fields outright, so the two move together or not at all. Sheets are validated before they're written, since an invalid one would replace a good file with an error on homepage's index.
+
+The point is that sheets are **derived**, not written: a rite reads the same config sources (through the same profile-overlay merge) that produce the real config, so a cheatsheet can't quietly disagree with the tool it documents. Profile gating applies as it does everywhere else — a work-only rite contributes no sheet on a personal machine.
+
+Sheets land in homepage's own content directory (`~/Library/Application Support/homepage/content/cheatsheets`) by default, so neither side needs configuring on a fresh machine. Override for one run with `--output`, or for good by exporting `GRIMOIRE_SCRIBE_OUTPUT`.
+
+That directory is shared with hand-written sheets, so ownership is read from each file's `generator` field rather than assumed from the directory: grimoire refuses to overwrite a sheet it didn't write, and prunes only its own.
+
+`scribe` is read-only with respect to the machine: rites are loaded so their doc content registers, but no tome file is written and no symlink is touched. See `grimoire scribe --help` for flags.
 
 ## Structure
 

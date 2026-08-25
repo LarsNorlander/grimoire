@@ -1,8 +1,246 @@
 #!/usr/bin/env python3
 # profile: work
+"""Applies tmux.conf, and derives a cheatsheet page from that same file.
 
+The parser leans on a convention already present in tmux.conf: bindings live
+under `# ── Title: note ──` headers. Those headers carry the intent that the
+`bind` lines alone don't, so grouping and captions come for free — which is
+why this stays a parser and not a second hand-written list to keep in sync.
+"""
+
+import shlex
+
+from arcana.docs import DocEntry, DocPage, DocSection, chord
 from arcana.tome import RiteContext
+
+# Directional flags shared by select-pane / resize-pane.
+_DIRS = {"-L": "left", "-D": "down", "-U": "up", "-R": "right"}
+
+# Flags that consume the following token, so the key isn't mistaken for one.
+_FLAGS_WITH_ARG = {"-T", "-N"}
+
+
+def _split_comment(line: str) -> tuple[str, str]:
+    """Split a trailing `# comment`, ignoring `#` inside quotes.
+
+    tmux format strings are full of `#{...}` and `#[...]`, so a naive split on
+    the first `#` would truncate commands mid-argument.
+    """
+    out: list[str] = []
+    quote: str | None = None
+    for ch in line:
+        if quote:
+            out.append(ch)
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+            out.append(ch)
+        elif ch == "#":
+            return "".join(out).rstrip(), line[len(out) + 1:].strip()
+        else:
+            out.append(ch)
+    return "".join(out).rstrip(), ""
+
+
+def _describe(tokens: list[str]) -> str | None:
+    """Humanize a tmux command, or None if the command isn't recognized.
+
+    Returning None rather than a guess lets the caller fall back to the
+    author's own trailing comment, and keeps new commands in tmux.conf
+    showing up verbatim instead of silently mis-described.
+    """
+    if not tokens:
+        return None
+    cmd, args = tokens[0], tokens[1:]
+    direction = next((_DIRS[a] for a in args if a in _DIRS), None)
+
+    if cmd == "split-window":
+        if "-h" in args:
+            return "split pane side by side"
+        if "-v" in args:
+            return "split pane stacked"
+        return "split pane"
+    if cmd == "select-pane":
+        return f"focus pane {direction}" if direction else "select pane"
+    if cmd == "resize-pane":
+        amount = next((a for a in args if a.isdigit()), None)
+        if direction:
+            return f"grow pane {direction}" + (f" by {amount}" if amount else "")
+        return "resize pane"
+    if cmd == "send-keys" and "-X" in args:
+        action = args[args.index("-X") + 1]
+        if action.startswith("copy-pipe"):
+            return "copy selection to the system clipboard"
+        return action.replace("-", " ")
+    if cmd == "source-file":
+        return "reload the tmux config"
+    if cmd == "choose-tree":
+        return "session picker"
+    simple = {
+        "new-window": "new window",
+        "kill-pane": "kill the pane",
+        "detach-client": "detach from the session",
+        "last-window": "last window",
+        "send-prefix": "send the prefix through to the inner program",
+    }
+    return simple.get(cmd)
+
+
+def _parse_bind(tokens: list[str]):
+    """-> (table, key, repeatable, root, command_tokens) or None."""
+    i = 1
+    table, repeatable, root = None, False, False
+    while i < len(tokens) and tokens[i].startswith("-") and len(tokens[i]) > 1:
+        flag = tokens[i]
+        if flag in _FLAGS_WITH_ARG:
+            if flag == "-T" and i + 1 < len(tokens):
+                table = tokens[i + 1]
+            i += 2
+            continue
+        repeatable = repeatable or "r" in flag[1:]
+        root = root or "n" in flag[1:]
+        i += 1
+    if i >= len(tokens):
+        return None
+    return table, tokens[i], repeatable, root, tokens[i + 1:]
+
+
+def _heading(block: list[str]) -> tuple[str, str | None] | None:
+    """Turn a `# ── Title: note ──` comment block into (title, note).
+
+    Returns None for ordinary comments. Headers may wrap across lines, so the
+    block arrives pre-joined by the caller.
+    """
+    if not block or not block[0].startswith("─"):
+        return None
+    text = " ".join(block).strip("─ ").strip()
+    if ":" in text:
+        title, note = text.split(":", 1)
+        return title.strip(), note.strip() or None
+    return text, None
+
+
+def _curated_defaults(prefix: str) -> DocSection:
+    """Built-in tmux bindings that never appear in tmux.conf.
+
+    Hand-written, and labeled as such on the page — these are the ones worth
+    remembering that a parser can't see, and tmux's defaults are stable enough
+    that this list won't rot.
+    """
+    pairs = [
+        ("z", "zoom the pane in and out"),
+        ("x", "kill the pane"),
+        ("&", "kill the window"),
+        ("[", "enter copy mode"),
+        ("]", "paste the buffer"),
+        ("w", "window list across sessions"),
+        ("d", "detach from the session"),
+        ("?", "list every binding"),
+    ]
+    return DocSection(
+        title="tmux defaults",
+        note="Built into tmux, not set in tmux.conf.",
+        entries=[DocEntry(f"{prefix} + {k}", d, note="default") for k, d in pairs],
+    )
+
+
+def build_docs(*, rite_dir, **_) -> DocPage:
+    text = (rite_dir / "tmux.conf").read_text()
+
+    prefix = "prefix"
+    sections: list[DocSection] = []
+    current: DocSection | None = None
+    block: list[str] = []
+
+    def flush_block() -> None:
+        nonlocal current
+        if heading := _heading(block):
+            current = DocSection(title=heading[0], note=heading[1])
+            sections.append(current)
+        block.clear()
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("#!"):
+            continue
+        if line.startswith("#"):
+            block.append(line.lstrip("#").strip())
+            continue
+        flush_block()
+        if not line:
+            continue
+
+        code, comment = _split_comment(line)
+        try:
+            tokens = shlex.split(code)
+        except ValueError:
+            continue  # unbalanced quotes — skip rather than fail the page
+        if not tokens:
+            continue
+
+        if tokens[0] in ("set", "set-option") and "prefix" in tokens:
+            value = tokens[tokens.index("prefix") + 1:]
+            if value:
+                prefix = chord(value[0].split("-"))
+            continue
+
+        if tokens[0] not in ("bind", "bind-key"):
+            continue
+        parsed = _parse_bind(tokens)
+        if not parsed:
+            continue
+        table, key, repeatable, root, command = parsed
+
+        if current is None:
+            current = DocSection(title="Bindings")
+            sections.append(current)
+
+        keys = chord(key.split("-"))
+        notes: list[str] = []
+        if table and table != "prefix":
+            if "copy" not in current.title.lower():
+                notes.append(table.replace("-", " "))
+        elif root:
+            notes.append("no prefix")
+        else:
+            keys = f"{prefix} + {keys}"
+        if repeatable:
+            notes.append("repeatable")
+
+        # A trailing comment is sometimes the description ("session picker")
+        # and sometimes an aside about why the binding moved ("displaced from
+        # l"). Prefer the derived description when we recognized the command,
+        # and demote whatever the comment adds beyond it to a note.
+        derived = _describe(command)
+        if derived:
+            description = derived
+            extra = comment
+            if comment.lower().startswith(derived.lower()):
+                extra = comment[len(derived):].lstrip(" ,;:-—").strip()
+            if extra:
+                notes.append(extra)
+        else:
+            description = comment or " ".join(command)
+
+        current.entries.append(
+            DocEntry(keys=keys, description=description,
+                     note=", ".join(notes) or None)
+        )
+
+    sections.append(_curated_defaults(prefix))
+    return DocPage(
+        title="tmux",
+        summary=f"Terminal multiplexer. The prefix is {prefix}.",
+        tags=["tmux", "terminal"],
+        body="Bindings are read straight out of `tmux.conf`; the last group "
+             "is hand-kept.",
+        source="rites/tmux/tmux.conf",
+        sections=sections,
+    )
+
 
 ctx = RiteContext.from_args()
 ctx.copy("tmux.conf")
 ctx.link("tmux.conf", "~/.config/tmux/tmux.conf")
+ctx.doc(build_docs)

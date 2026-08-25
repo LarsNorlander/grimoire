@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import importlib.util
+import json
 from importlib.machinery import SourceFileLoader
 import os
 import shutil
@@ -11,6 +12,7 @@ from pathlib import Path
 import click
 
 from arcana import diff as diff_mod
+from arcana import docs as docs_mod
 from arcana.tome import (
     RiteContext,
     RiteSkipped,
@@ -24,6 +26,19 @@ sys.dont_write_bytecode = True  # rite scripts are extension-less; no point cach
 GRIMOIRE_ROOT = Path.home() / ".grimoire"
 PROFILE_FILE = Path.home() / ".grimoire-profile"
 VALID_PROFILES = ("work", "personal")
+
+# Where `scribe` writes when nothing overrides it. This is homepage's own
+# default content directory — `os.UserConfigDir()/homepage/content` with one
+# subdirectory per kind — so a fresh machine needs no configuration on either
+# side to make generated sheets show up.
+# Stamped into every sheet, and the marker that makes a sheet ours to
+# overwrite or prune in a directory we share with hand-written ones.
+GENERATOR = "grimoire scribe"
+SCRIBE_OUTPUT_ENV = "GRIMOIRE_SCRIBE_OUTPUT"
+DEFAULT_SCRIBE_OUTPUT = (
+    Path.home() / "Library" / "Application Support" / "homepage"
+    / "content" / "cheatsheets"
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,6 +62,35 @@ def _resolve_profile() -> str:
     PROFILE_FILE.write_text(profile + "\n")
     click.echo(f"Profile: {profile} (saved to {PROFILE_FILE})")
     return profile
+
+
+def _is_ours(sheet: Path) -> bool:
+    """Whether grimoire may write over this sheet.
+
+    True when the file doesn't exist yet or carries our `generator` stamp. The
+    output directory is shared with hand-written sheets, and clobbering one
+    would destroy content no rite can regenerate.
+    """
+    if not sheet.exists():
+        return True
+    try:
+        existing = json.loads(sheet.read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(existing, dict) and existing.get("generator") == GENERATOR
+
+
+def _resolve_scribe_output(output: Path | None) -> Path:
+    """Where scribe writes: --output, then $GRIMOIRE_SCRIBE_OUTPUT, then default.
+
+    The env var is the configuration point, which means the zsh rite can export
+    it and the override becomes grimoire-managed like everything else.
+    """
+    if output is not None:
+        return output.expanduser()
+    if configured := os.environ.get(SCRIBE_OUTPUT_ENV, "").strip():
+        return Path(configured).expanduser()
+    return DEFAULT_SCRIBE_OUTPUT
 
 
 def _apply_runes(profile: str, dry_run: bool = False) -> None:
@@ -397,6 +441,112 @@ def bootstrap() -> None:
     _apply_runes(profile)
     _ensure_prerequisites()
     _build_rites(profile, force=False)
+    click.echo("Done.")
+
+
+@grimoire.command()
+@click.argument("tools", nargs=-1, metavar="[TOOL ...]",
+                shell_complete=_complete_tool_names)
+@click.option("--output", "-o", "output", type=click.Path(file_okay=False, path_type=Path),
+              default=None,
+              help=f"Directory to write JSON into. Defaults to ${SCRIBE_OUTPUT_ENV} "
+                   "if set, otherwise homepage's content directory.")
+def scribe(tools: tuple[str, ...], output: Path | None) -> None:
+    """Generate cheatsheet data from the rites that document themselves.
+
+    Writes one JSON file per documented tool, conforming to homepage's
+    cheatsheet schema. Grimoire produces the data; homepage renders it.
+
+    Read-only with respect to the machine: rites are loaded so their doc
+    content registers, but no tome file is written and no symlink is touched.
+
+    Writes to homepage's content directory by default. Override for one run
+    with --output, or for good by exporting $GRIMOIRE_SCRIBE_OUTPUT.
+    """
+    click.echo(f"Scribing grimoire from {GRIMOIRE_ROOT}\n")
+    profile = _resolve_profile()
+    click.echo()
+    _ensure_prerequisites()
+
+    out_dir = _resolve_scribe_output(output)
+
+    if tools:
+        rite_paths = []
+        for tool in tools:
+            rite_path = GRIMOIRE_ROOT / "rites" / tool / "rite"
+            if not rite_path.is_file():
+                sys.exit(f"  ERROR: no rite found for '{tool}'")
+            rite_paths.append(rite_path)
+    else:
+        rite_paths = sorted(GRIMOIRE_ROOT.glob("rites/*/rite"))
+
+    click.echo("Scribing sheets...")
+    pages: list[tuple[str, docs_mod.DocPage]] = []
+    errors: list[tuple[str, str]] = []
+
+    for rite_path in rite_paths:
+        if not os.access(rite_path, os.X_OK):
+            continue
+        tool = rite_path.parent.name
+        try:
+            ctx = _load_rite(rite_path, profile)
+            rite_pages = ctx.registered_docs()
+        except RiteSkipped as e:
+            click.echo(e)
+            continue
+        except Exception as e:
+            errors.append((tool, str(e)))
+            continue
+        for i, page in enumerate(rite_pages):
+            if not page.populated():
+                click.echo(f"  {tool}: no content — skipping")
+                continue
+            page.generator = GENERATOR
+            # Validate before writing, not after: an invalid sheet is rejected
+            # outright by homepage's reader, so emitting one would replace a
+            # good file with one that shows up as an error on the index.
+            if found := docs_mod.problems(page):
+                errors.append((tool, "\n".join(f"    {p}" for p in found)))
+                continue
+            filename = f"{tool}.json" if i == 0 else f"{tool}-{i}.json"
+            pages.append((filename, page))
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written_pages: list[tuple[str, docs_mod.DocPage]] = []
+    for filename, page in pages:
+        target = out_dir / filename
+        if not _is_ours(target):
+            errors.append((page.title, f"    {target} already exists and wasn't "
+                                       f"written by {GENERATOR} — refusing to "
+                                       f"overwrite it"))
+            continue
+        target.write_text(docs_mod.dumps(page))
+        written_pages.append((filename, page))
+        click.echo(f"  wrote {filename} — {len(page.populated())} sections, "
+                   f"{page.entry_count()} bindings")
+    pages = written_pages
+
+    # Prune sheets whose rite stopped documenting itself. The output directory
+    # is shared — homepage pools generated sheets with hand-written ones — so
+    # ownership is read out of each file's own `generator` field rather than
+    # assumed from the directory. Anything grimoire didn't write is left alone.
+    # Skipped on a filtered run, which knows nothing about the tools it didn't
+    # load and would prune every sheet it wasn't asked for.
+    if not tools:
+        written = {fn for fn, _ in pages}
+        for sheet in sorted(out_dir.glob("*.json")):
+            if sheet.name in written:
+                continue
+            if _is_ours(sheet):
+                sheet.unlink()
+                click.echo(f"  pruned {sheet.name} (no longer documented)")
+
+    click.echo(f"\n{len(pages)} sheet(s) in {out_dir}")
+    if errors:
+        click.echo()
+        for tool, err in errors:
+            click.echo(f"  ERROR in {tool}: {err}", err=True)
+        sys.exit(1)
     click.echo("Done.")
 
 

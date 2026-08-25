@@ -11,6 +11,8 @@ from typing import Callable, ClassVar
 from detect_secrets import SecretsCollection
 from detect_secrets.settings import default_settings
 
+from arcana.docs import DocPage
+
 MANIFEST_FILENAME = ".manifest"
 
 _PROFILE_DIRECTIVE_RE = re.compile(r'#\s*profile:\s*(.+?)\s*$', re.IGNORECASE)
@@ -109,6 +111,17 @@ class HookOp:
     fn: Callable
 
 
+@dataclass
+class DocOp:
+    """Documentation content a rite offers about itself.
+
+    Inert during cast/accept — `execute()` never touches it, so generating
+    docs can't move a symlink or rewrite a tome file. Only `grimoire scribe`
+    reads these, via `registered_docs()`.
+    """
+    page: DocPage | Callable
+
+
 class RiteSkipped(Exception):
     """Raised in-process when a rite is skipped due to profile requirements."""
 
@@ -128,7 +141,7 @@ class RiteContext:
         self._tome_root = grimoire_root / "tome"
         self._manifest = load_manifest(self._tome_root)
         self._dirty = False
-        self._ops: list[CopyOp | WriteOp | LinkOp | HookOp] = []
+        self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | DocOp] = []
 
     @classmethod
     def from_args(cls) -> "RiteContext":
@@ -197,6 +210,16 @@ class RiteContext:
     def hook(self, name: str, fn: Callable) -> None:
         self._ops.append(HookOp(name, fn))
 
+    def doc(self, page: DocPage | Callable) -> None:
+        """Register a cheatsheet page for this tool.
+
+        Takes a `DocPage` or a builder called with the same kwargs as
+        `write()`'s (`profile`, `rite_dir`, `grimoire_root`). Prefer a builder:
+        it defers parsing until `grimoire scribe` actually asks, so `cast` pays
+        nothing for docs it isn't generating.
+        """
+        self._ops.append(DocOp(page))
+
     # --- Introspection ---
 
     def registered_keys(self) -> set[str]:
@@ -209,6 +232,26 @@ class RiteContext:
             elif isinstance(op, WriteOp):
                 keys.add(self._manifest_key(op.filename))
         return keys
+
+    def registered_docs(self) -> list[DocPage]:
+        """Resolve every registered DocOp into a DocPage.
+
+        Calls builders — so this is where doc-time parsing happens. Read-only
+        with respect to tome/ and the filesystem.
+        """
+        pages: list[DocPage] = []
+        for op in self._ops:
+            if not isinstance(op, DocOp):
+                continue
+            page = op.page
+            if callable(page):
+                page = page(
+                    profile=self.profile,
+                    rite_dir=self.rite_dir,
+                    grimoire_root=self.grimoire_root,
+                )
+            pages.append(page)
+        return pages
 
     # --- Execution ---
 
