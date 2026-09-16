@@ -133,6 +133,6 @@ Secrets are managed through [1Password](https://1password.com/) and its CLI (`op
 
 This is a personal configuration repo — it reflects one person's preferences and workflow. Contributions (issues, pull requests) are not accepted. You're welcome to fork it and make it your own.
 
-## Built with Claude Code
+## Built with Pi
 
-This repo is maintained with the help of [Claude Code](https://claude.com/claude-code).
+This repo is maintained with the help of Pi.
