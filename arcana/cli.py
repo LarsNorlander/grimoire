@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import json
 import os
 import shutil
@@ -12,8 +11,8 @@ import click
 from arcana import diff as diff_mod
 from arcana import docs as docs_mod
 from arcana import rites as rites_mod
-from arcana.rites import VALID_PROFILES, RiteNotFound
 from arcana.manifest import Manifest
+from arcana.rites import VALID_PROFILES, RiteNotFound
 from arcana.tome import RiteSkipped
 
 sys.dont_write_bytecode = True  # rite scripts are extension-less; no point caching
@@ -22,7 +21,9 @@ sys.dont_write_bytecode = True  # rite scripts are extension-less; no point cach
 # the default. The env overrides exist so tests (and ad-hoc checks) can aim
 # the CLI at a throwaway root and profile without touching the real machine.
 GRIMOIRE_ROOT = Path(os.environ.get("GRIMOIRE_ROOT") or Path.home() / ".grimoire")
-PROFILE_FILE = Path(os.environ.get("GRIMOIRE_PROFILE_FILE") or Path.home() / ".grimoire-profile")
+PROFILE_FILE = Path(
+    os.environ.get("GRIMOIRE_PROFILE_FILE") or Path.home() / ".grimoire-profile"
+)
 # The code checkout: where pyproject.toml and the venv live. Usually the same
 # directory as GRIMOIRE_ROOT, but not when a test aims the root elsewhere.
 CHECKOUT = Path(__file__).resolve().parents[1]
@@ -36,14 +37,19 @@ CHECKOUT = Path(__file__).resolve().parents[1]
 GENERATOR = "grimoire scribe"
 SCRIBE_OUTPUT_ENV = "GRIMOIRE_SCRIBE_OUTPUT"
 DEFAULT_SCRIBE_OUTPUT = (
-    Path.home() / "Library" / "Application Support" / "homepage"
-    / "content" / "cheatsheets"
+    Path.home()
+    / "Library"
+    / "Application Support"
+    / "homepage"
+    / "content"
+    / "cheatsheets"
 )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _resolve_profile() -> str:
     if PROFILE_FILE.exists():
@@ -75,7 +81,7 @@ def _is_ours(sheet: Path) -> bool:
         return True
     try:
         existing = json.loads(sheet.read_text())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
     return isinstance(existing, dict) and existing.get("generator") == GENERATOR
 
@@ -103,7 +109,8 @@ def _apply_runes(profile: str, dry_run: bool = False) -> None:
         # `darwin-rebuild` (which doesn't forward `--no-link`) and call
         # `nix build` directly against the full flake attribute path.
         cmd = [
-            "nix", "build",
+            "nix",
+            "build",
             f"{GRIMOIRE_ROOT}/runes#darwinConfigurations.{profile}.system",
             "--no-link",
         ]
@@ -140,19 +147,21 @@ def _ensure_prerequisites() -> None:
 
 
 def _rites_or_exit(tools: tuple[str, ...]) -> list[Path]:
-    """Resolve named rites (or all), exiting with the CLI's error style if one is missing."""
+    """Resolve named rites (or all); exit CLI-style if one is missing."""
     try:
         return rites_mod.discover(GRIMOIRE_ROOT, tools)
     except RiteNotFound as e:
         sys.exit(f"  ERROR: {e}")
 
 
-def _cast(profile: str, *, force: bool, dry_run: bool = False,
-          tools: tuple[str, ...] = ()) -> None:
+def _cast(
+    profile: str, *, force: bool, dry_run: bool = False, tools: tuple[str, ...] = ()
+) -> None:
     """Run build_rites and turn its failures into CLI output and exit status."""
     try:
-        errors = rites_mod.build_rites(GRIMOIRE_ROOT, profile, force=force,
-                                       dry_run=dry_run, tools=tools)
+        errors = rites_mod.build_rites(
+            GRIMOIRE_ROOT, profile, force=force, dry_run=dry_run, tools=tools
+        )
     except RiteNotFound as e:
         sys.exit(f"  ERROR: {e}")
     if errors:
@@ -164,6 +173,7 @@ def _cast(profile: str, *, force: bool, dry_run: bool = False,
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _complete_tool_names(ctx, param, incomplete: str) -> list[str]:
     """Shell-completion callback: enumerate rites/*/rite.py as candidates.
@@ -178,7 +188,8 @@ def _complete_tool_names(ctx, param, incomplete: str) -> list[str]:
         if p in VALID_PROFILES:
             current = p
     return [
-        rp.parent.name for rp in rites_mod.discover(GRIMOIRE_ROOT)
+        rp.parent.name
+        for rp in rites_mod.discover(GRIMOIRE_ROOT)
         if rp.parent.name.startswith(incomplete)
         and (current is None or rites_mod.allowed_under(rp, current))
     ]
@@ -190,24 +201,26 @@ def _complete_familiar_names(ctx, param, incomplete: str) -> list[str]:
     if not familiars_dir.is_dir():
         return []
     return sorted(
-        p.stem for p in familiars_dir.glob("*.nix")
-        if p.stem.startswith(incomplete)
+        p.stem for p in familiars_dir.glob("*.nix") if p.stem.startswith(incomplete)
     )
 
 
 @click.group()
 def grimoire():
     """Grimoire — personal machine configuration manager."""
-    pass
 
 
 # Primitive action verbs ──────────────────────────────────────────────────────
 
+
 @grimoire.command()
-@click.argument("tools", nargs=-1, metavar="[TOOL ...]",
-                shell_complete=_complete_tool_names)
+@click.argument(
+    "tools", nargs=-1, metavar="[TOOL ...]", shell_complete=_complete_tool_names
+)
 @click.option("--force", is_flag=True, help="Overwrite externally modified tome files.")
-@click.option("--dry-run", is_flag=True, help="Show what would be done without making changes.")
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be done without making changes."
+)
 def cast(tools: tuple[str, ...], force: bool, dry_run: bool) -> None:
     """Apply rites to the current machine."""
     click.echo(f"Casting grimoire from {GRIMOIRE_ROOT}\n")
@@ -219,8 +232,11 @@ def cast(tools: tuple[str, ...], force: bool, dry_run: bool) -> None:
 
 
 @grimoire.command()
-@click.option("--dry-run", is_flag=True,
-              help="Build the nix-darwin configuration without activating it.")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Build the nix-darwin configuration without activating it.",
+)
 def inscribe(dry_run: bool) -> None:
     """Apply runes (nix-darwin switch) to the current machine."""
     click.echo(f"Inscribing grimoire from {GRIMOIRE_ROOT}\n")
@@ -231,9 +247,16 @@ def inscribe(dry_run: bool) -> None:
 
 
 @grimoire.command()
-@click.argument("tools", nargs=-1, required=True, metavar="TOOL [TOOL ...]",
-                shell_complete=_complete_tool_names)
-@click.option("--dry-run", is_flag=True, help="Show what would be accepted without copying.")
+@click.argument(
+    "tools",
+    nargs=-1,
+    required=True,
+    metavar="TOOL [TOOL ...]",
+    shell_complete=_complete_tool_names,
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Show what would be accepted without copying."
+)
 def accept(tools: tuple[str, ...], dry_run: bool) -> None:
     """Pull external changes back into rite sources (copy() files and patch() keys)."""
     click.echo(f"Accepting external changes ({GRIMOIRE_ROOT})\n")
@@ -241,12 +264,14 @@ def accept(tools: tuple[str, ...], dry_run: bool) -> None:
     click.echo()
     _ensure_prerequisites()
     for path in _rites_or_exit(tools):
-        rites_mod.run_rite(path, profile, GRIMOIRE_ROOT,
-                           force=False, accepting=True, dry_run=dry_run)
+        rites_mod.run_rite(
+            path, profile, GRIMOIRE_ROOT, force=False, accepting=True, dry_run=dry_run
+        )
     click.echo("\nDone.")
 
 
 # Ephemeral invocation ────────────────────────────────────────────────────────
+
 
 @grimoire.command()
 @click.argument("familiar", shell_complete=_complete_familiar_names)
@@ -261,8 +286,7 @@ def summon(familiar: str, cmd: tuple[str, ...]) -> None:
     familiar_path = GRIMOIRE_ROOT / "familiars" / f"{familiar}.nix"
     if not familiar_path.is_file():
         sys.exit(
-            f"ERROR: no familiar named '{familiar}' "
-            f"(see {GRIMOIRE_ROOT}/familiars/)"
+            f"ERROR: no familiar named '{familiar}' (see {GRIMOIRE_ROOT}/familiars/)"
         )
 
     args = ["nix", "develop", "-f", str(familiar_path)]
@@ -282,6 +306,7 @@ def summon(familiar: str, cmd: tuple[str, ...]) -> None:
 
 # Compound verb ───────────────────────────────────────────────────────────────
 
+
 @grimoire.command()
 def bootstrap() -> None:
     """Provision a fresh machine: apply runes, then apply all rites."""
@@ -295,12 +320,18 @@ def bootstrap() -> None:
 
 
 @grimoire.command()
-@click.argument("tools", nargs=-1, metavar="[TOOL ...]",
-                shell_complete=_complete_tool_names)
-@click.option("--output", "-o", "output", type=click.Path(file_okay=False, path_type=Path),
-              default=None,
-              help=f"Directory to write JSON into. Defaults to ${SCRIBE_OUTPUT_ENV} "
-                   "if set, otherwise homepage's content directory.")
+@click.argument(
+    "tools", nargs=-1, metavar="[TOOL ...]", shell_complete=_complete_tool_names
+)
+@click.option(
+    "--output",
+    "-o",
+    "output",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help=f"Directory to write JSON into. Defaults to ${SCRIBE_OUTPUT_ENV} "
+    "if set, otherwise homepage's content directory.",
+)
 def scribe(tools: tuple[str, ...], output: Path | None) -> None:
     """Generate cheatsheet data from the rites that document themselves.
 
@@ -356,14 +387,23 @@ def scribe(tools: tuple[str, ...], output: Path | None) -> None:
     for filename, page in pages:
         target = out_dir / filename
         if not _is_ours(target):
-            errors.append((page.title, f"    {target} already exists and wasn't "
-                                       f"written by {GENERATOR} — refusing to "
-                                       f"overwrite it"))
+            errors.append(
+                (
+                    page.title,
+                    (
+                        f"    {target} already exists and wasn't "
+                        f"written by {GENERATOR} — refusing to "
+                        f"overwrite it"
+                    ),
+                )
+            )
             continue
         target.write_text(docs_mod.dumps(page))
         written_pages.append((filename, page))
-        click.echo(f"  wrote {filename} — {len(page.populated())} sections, "
-                   f"{page.entry_count()} bindings")
+        click.echo(
+            f"  wrote {filename} — {len(page.populated())} sections, "
+            f"{page.entry_count()} bindings"
+        )
     pages = written_pages
 
     # Prune sheets whose rite stopped documenting itself. The output directory
@@ -392,27 +432,50 @@ def scribe(tools: tuple[str, ...], output: Path | None) -> None:
 
 # Inspection ──────────────────────────────────────────────────────────────────
 
+
 @grimoire.command()
 @click.argument("tool", required=False, shell_complete=_complete_tool_names)
-@click.option("--drift", "show_drift", is_flag=True,
-              help="Show drift: tome vs. manifest (local edits since last cast).")
-@click.option("--cast", "show_cast", is_flag=True,
-              help="Show cast preview: fresh rebuild vs. current tome.")
-@click.option("--accept", "show_accept", is_flag=True,
-              help="Show accept preview: tome vs. rite source.")
-@click.option("--build", is_flag=True,
-              help="Run write() generators so --cast can evaluate them.")
-@click.option("--full", is_flag=True,
-              help="Show unified-diff content instead of a summary.")
+@click.option(
+    "--drift",
+    "show_drift",
+    is_flag=True,
+    help="Show drift: tome vs. manifest (local edits since last cast).",
+)
+@click.option(
+    "--cast",
+    "show_cast",
+    is_flag=True,
+    help="Show cast preview: fresh rebuild vs. current tome.",
+)
+@click.option(
+    "--accept",
+    "show_accept",
+    is_flag=True,
+    help="Show accept preview: tome vs. rite source.",
+)
+@click.option(
+    "--build", is_flag=True, help="Run write() generators so --cast can evaluate them."
+)
+@click.option(
+    "--full", is_flag=True, help="Show unified-diff content instead of a summary."
+)
 @click.pass_context
-def diff(cli_ctx: click.Context, tool: str | None,
-         show_drift: bool, show_cast: bool, show_accept: bool,
-         build: bool, full: bool) -> None:
+def diff(
+    cli_ctx: click.Context,
+    tool: str | None,
+    show_drift: bool,
+    show_cast: bool,
+    show_accept: bool,
+    build: bool,
+    full: bool,
+) -> None:
     """Show how tome state differs from manifest, fresh rebuild, or rite sources."""
     if not PROFILE_FILE.exists():
         click.echo(
             "ERROR: no profile set — run `grimoire profile set <work|personal>` "
-            "or `grimoire bootstrap`.", err=True)
+            "or `grimoire bootstrap`.",
+            err=True,
+        )
         cli_ctx.exit(2)
     profile = PROFILE_FILE.read_text().strip()
 
@@ -421,7 +484,8 @@ def diff(cli_ctx: click.Context, tool: str | None,
     _ensure_prerequisites()
 
     selected = {
-        d for d, on in [
+        d
+        for d, on in [
             (diff_mod.Direction.DRIFT, show_drift),
             (diff_mod.Direction.CAST, show_cast),
             (diff_mod.Direction.ACCEPT, show_accept),
@@ -467,6 +531,7 @@ def diff(cli_ctx: click.Context, tool: str | None,
 
 
 # Meta ────────────────────────────────────────────────────────────────────────
+
 
 @grimoire.group(invoke_without_command=True)
 @click.pass_context

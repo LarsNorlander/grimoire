@@ -38,13 +38,22 @@ class Model(unittest.TestCase):
         page = docs.DocPage(
             title=" ",
             tags=["ok", ""],
-            sections=[docs.DocSection(title="", entries=[docs.DocEntry(keys="", description="")])],
+            sections=[
+                docs.DocSection(
+                    title="", entries=[docs.DocEntry(keys="", description="")]
+                )
+            ],
         )
         found = docs.problems(page)
         self.assertEqual(len(found), 5, found)
 
     def test_empty_sections_are_dropped_not_reported(self):
-        page = self.page(sections=[docs.DocSection(title="Empty"), docs.DocSection(title="Full", body="x")])
+        page = self.page(
+            sections=[
+                docs.DocSection(title="Empty"),
+                docs.DocSection(title="Full", body="x"),
+            ]
+        )
         self.assertEqual([s.title for s in page.populated()], ["Full"])
         self.assertEqual(docs.problems(page), [])
 
@@ -53,10 +62,17 @@ class Model(unittest.TestCase):
         self.assertEqual(docs.problems(self.page(body="prose")), [])
 
     def test_serialization_omits_empty_optionals(self):
-        page = self.page(sections=[docs.DocSection(title="S", entries=[docs.DocEntry("k", "d")])])
+        page = self.page(
+            sections=[docs.DocSection(title="S", entries=[docs.DocEntry("k", "d")])]
+        )
         self.assertEqual(
             docs.to_dict(page),
-            {"title": "T", "sections": [{"title": "S", "entries": [{"keys": "k", "description": "d"}]}]},
+            {
+                "title": "T",
+                "sections": [
+                    {"title": "S", "entries": [{"keys": "k", "description": "d"}]}
+                ],
+            },
         )
         self.assertTrue(docs.dumps(page).endswith("\n"))
 
@@ -75,14 +91,18 @@ class RiteSmoke(unittest.TestCase):
 
     def test_documenting_rites_exist(self):
         tools = {tool for tool, _ in self.pages_for("work")}
-        self.assertTrue(tools, "no rite registers doc(); remove this suite if that is intended")
+        self.assertTrue(
+            tools, "no rite registers doc(); remove this suite if that is intended"
+        )
 
     def test_pages_are_valid_and_populated_under_each_profile(self):
         for profile in rites.VALID_PROFILES:
             for tool, page in self.pages_for(profile):
                 with self.subTest(tool=tool, profile=profile):
                     self.assertEqual(docs.problems(page), [])
-                    self.assertGreater(page.entry_count(), 0, "parser found no bindings")
+                    self.assertGreater(
+                        page.entry_count(), 0, "parser found no bindings"
+                    )
                     self.assertTrue(page.source, "page should name its source file")
 
 

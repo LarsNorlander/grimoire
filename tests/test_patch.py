@@ -33,7 +33,9 @@ class Helpers(unittest.TestCase):
         doc = {"perm": {"allow": ["old"], "mode": "ask"}, "model": "opus"}
         frag = {"perm": {"allow": ["new"]}}
         out = patch.merge(doc, frag)
-        self.assertEqual(out, {"perm": {"allow": ["new"], "mode": "ask"}, "model": "opus"})
+        self.assertEqual(
+            out, {"perm": {"allow": ["new"], "mode": "ask"}, "model": "opus"}
+        )
         self.assertEqual(doc["perm"]["allow"], ["old"], "merge must not mutate input")
 
     def test_prune_drops_paths_and_emptied_parents(self):
@@ -43,7 +45,9 @@ class Helpers(unittest.TestCase):
         self.assertIn("x", doc, "prune must not mutate input")
 
     def test_canonical_is_order_independent(self):
-        self.assertEqual(patch.canonical({"b": 1, "a": 2}), patch.canonical({"a": 2, "b": 1}))
+        self.assertEqual(
+            patch.canonical({"b": 1, "a": 2}), patch.canonical({"a": 2, "b": 1})
+        )
 
     def test_load_rejects_non_object_and_bad_json(self):
         with tempfile.TemporaryDirectory() as d:

@@ -74,7 +74,9 @@ def prune(doc: dict, paths: list[KeyPath]) -> dict:
 
 def canonical(fragment: dict) -> bytes:
     """Stable bytes for hashing and diffing: sorted keys, two-space indent."""
-    return (json.dumps(fragment, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode()
+    return (
+        json.dumps(fragment, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    ).encode()
 
 
 def load(path: Path) -> dict:
@@ -82,7 +84,9 @@ def load(path: Path) -> dict:
     try:
         doc = json.loads(path.read_text())
     except json.JSONDecodeError as e:
-        raise ValueError(f"{path}: not valid JSON ({e.msg} at line {e.lineno})") from None
+        raise ValueError(
+            f"{path}: not valid JSON ({e.msg} at line {e.lineno})"
+        ) from None
     if not isinstance(doc, dict):
         raise ValueError(f"{path}: top level must be a JSON object")
     return doc

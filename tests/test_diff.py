@@ -13,9 +13,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from arcana import diff
-from arcana import patch
-from arcana.diff import Direction as D, Status as S
+from arcana import diff, patch
+from arcana.diff import Direction as D
+from arcana.diff import Status as S
 from arcana.manifest import Entry, Manifest
 from arcana.tome import RiteContext
 
@@ -46,11 +46,15 @@ class Matrix(unittest.TestCase):
         return p
 
     def manifest(self, entries: dict) -> Manifest:
-        return Manifest(self.root / "tome" / ".manifest",
-                        {k: Entry(hash=v) for k, v in entries.items()})
+        return Manifest(
+            self.root / "tome" / ".manifest",
+            {k: Entry(hash=v) for k, v in entries.items()},
+        )
 
     def check(self, result: diff.DiffResult, drift, cast, accept, conflict=False):
-        self.assertEqual(result.statuses, {D.DRIFT: drift, D.CAST: cast, D.ACCEPT: accept})
+        self.assertEqual(
+            result.statuses, {D.DRIFT: drift, D.CAST: cast, D.ACCEPT: accept}
+        )
         self.assertIs(result.has_conflict, conflict)
 
     # -- copy() -----------------------------------------------------------
@@ -60,8 +64,12 @@ class Matrix(unittest.TestCase):
             (self.rite_dir / "a").write_bytes(source)
         if tome is not None:
             (self.tome_dir / "a").write_bytes(tome)
-        manifest = self.manifest({"t/a": self.sha(manifest_of)} if manifest_of is not None else {})
-        return diff.compute_diff(self.plan(lambda c: c.copy("a")), manifest, build=False)
+        manifest = self.manifest(
+            {"t/a": self.sha(manifest_of)} if manifest_of is not None else {}
+        )
+        return diff.compute_diff(
+            self.plan(lambda c: c.copy("a")), manifest, build=False
+        )
 
     def test_copy_clean(self):
         r = self.copy_case(source=b"v1", tome=b"v1", manifest_of=b"v1")
@@ -96,7 +104,9 @@ class Matrix(unittest.TestCase):
     def write_case(self, *, content, tome, manifest_of, build):
         if tome is not None:
             (self.tome_dir / "g").write_bytes(tome)
-        manifest = self.manifest({"t/g": self.sha(manifest_of)} if manifest_of is not None else {})
+        manifest = self.manifest(
+            {"t/g": self.sha(manifest_of)} if manifest_of is not None else {}
+        )
         plan = self.plan(lambda c: c.write("g", lambda **_: content), build=build)
         return diff.compute_diff(plan, manifest, build=build)
 
@@ -125,24 +135,38 @@ class Matrix(unittest.TestCase):
         if live is not None:
             self.target.write_text(json.dumps(live))
         manifest = self.manifest(
-            {"t/f.json": self.sha(patch.canonical(manifest_of))} if manifest_of is not None else {})
+            {"t/f.json": self.sha(patch.canonical(manifest_of))}
+            if manifest_of is not None
+            else {}
+        )
         plan = self.plan(lambda c: c.patch("f.json", str(self.target)))
         return diff.compute_diff(plan, manifest, build=False)
 
     def test_patch_clean_ignores_unowned_keys(self):
         f = {"tui": "full"}
-        r = self.patch_case(fragment=f, applied=f, live={"tui": "full", "model": "anything"}, manifest_of=f)
+        r = self.patch_case(
+            fragment=f,
+            applied=f,
+            live={"tui": "full", "model": "anything"},
+            manifest_of=f,
+        )
         self.check(r, S.CLEAN, S.CLEAN, S.CLEAN)
 
     def test_patch_owned_key_edited_live(self):
         f = {"tui": "full"}
-        r = self.patch_case(fragment=f, applied=f, live={"tui": "compact"}, manifest_of=f)
+        r = self.patch_case(
+            fragment=f, applied=f, live={"tui": "compact"}, manifest_of=f
+        )
         self.check(r, S.MODIFIED, S.MODIFIED, S.MODIFIED, conflict=True)
 
     def test_patch_fragment_gains_key_is_pending_cast_only(self):
         applied = {"tui": "full"}
-        r = self.patch_case(fragment={"tui": "full", "effort": "high"}, applied=applied,
-                            live={"tui": "full"}, manifest_of=applied)
+        r = self.patch_case(
+            fragment={"tui": "full", "effort": "high"},
+            applied=applied,
+            live={"tui": "full"},
+            manifest_of=applied,
+        )
         self.check(r, S.CLEAN, S.MODIFIED, S.MODIFIED)
 
     def test_patch_target_missing_after_cast(self):
@@ -151,7 +175,12 @@ class Matrix(unittest.TestCase):
         self.check(r, S.DELETED, S.ADDED, S.CLEAN, conflict=True)
 
     def test_patch_never_cast(self):
-        r = self.patch_case(fragment={"tui": "full"}, applied=None, live={"model": "x"}, manifest_of=None)
+        r = self.patch_case(
+            fragment={"tui": "full"},
+            applied=None,
+            live={"model": "x"},
+            manifest_of=None,
+        )
         # Nothing applied yet: same row as a never-cast copy() file.
         self.check(r, S.CLEAN, S.ADDED, S.CLEAN)
 
@@ -165,7 +194,9 @@ class Matrix(unittest.TestCase):
 
     def test_summary_labels_kind_and_counts_conflicts(self):
         f = {"tui": "full"}
-        r = self.patch_case(fragment=f, applied=f, live={"tui": "compact"}, manifest_of=f)
+        r = self.patch_case(
+            fragment=f, applied=f, live={"tui": "compact"}, manifest_of=f
+        )
         text = diff.format_summary([r], set(D))
         self.assertIn("t/f.json  [patch()]", text)
         self.assertIn("owned keys in target changed", text)

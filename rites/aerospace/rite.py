@@ -36,10 +36,14 @@ def merge_service_d(base_binding, work_d_entries):
     other monitor moves regardless of how many exit commands there are.
     """
     current = [str(x) for x in base_binding["d"]]
-    split = max(
-        i for i, cmd in enumerate(current)
-        if cmd.startswith("move-workspace-to-monitor")
-    ) + 1
+    split = (
+        max(
+            i
+            for i, cmd in enumerate(current)
+            if cmd.startswith("move-workspace-to-monitor")
+        )
+        + 1
+    )
     body, tail = current[:split], current[split:]
     merged = tomlkit.array(body + list(work_d_entries) + tail)
     merged.multiline(True)
@@ -57,7 +61,9 @@ def build_aerospace(*, profile, rite_dir, **_):
 
         profile_d_entries = None
         if "mode" in overlay:
-            service_binding = overlay.get("mode", {}).get("service", {}).get("binding", {})
+            service_binding = (
+                overlay.get("mode", {}).get("service", {}).get("binding", {})
+            )
             if "d" in service_binding:
                 profile_d_entries = list(service_binding["d"])
                 del service_binding["d"]
@@ -93,7 +99,7 @@ def _comment_text(raw: str) -> str:
 def _humanize(cmd: str) -> str:
     """Shorten one AeroSpace command for display."""
     if cmd.startswith("exec-and-forget "):
-        rest = cmd[len("exec-and-forget "):].strip()
+        rest = cmd[len("exec-and-forget ") :].strip()
         if m := _CANTRIP.search(rest):
             return m.group(1)
         return rest
@@ -137,7 +143,7 @@ def _binding_keys(path) -> dict[str, set[str]]:
     out: dict[str, set[str]] = {}
     for mode, table in doc.get("mode", {}).items():
         if (binding := table.get("binding")) is not None:
-            out[mode] = {str(k).strip() for k in binding.keys()}
+            out[mode] = {str(k).strip() for k in binding}
     return out
 
 
@@ -170,7 +176,11 @@ class _Grouper:
         plain = [(lvl, t) for lvl, t in block if not _SEE_FRAGMENT.search(t)]
         if not plain:
             if m := _SEE_FRAGMENT.search(block[0][1]):
-                self.group, self.sub, self.note = m.group(1).replace("-", " "), None, None
+                self.group, self.sub, self.note = (
+                    m.group(1).replace("-", " "),
+                    None,
+                    None,
+                )
                 return True
             return False
         primary = [t for lvl, t in plain if lvl < 2]
@@ -222,8 +232,11 @@ def build_docs(*, profile, rite_dir, **_) -> DocPage:
 
             entry = DocEntry(
                 keys=chord(str(key).strip().split("-")),
-                description=(_comment_text(item.trivia.comment)
-                             if item.trivia.comment else _describe(item)),
+                description=(
+                    _comment_text(item.trivia.comment)
+                    if item.trivia.comment
+                    else _describe(item)
+                ),
             )
 
             if str(key).strip() in exclusive:
@@ -231,7 +244,7 @@ def build_docs(*, profile, rite_dir, **_) -> DocPage:
                     overlay_section = DocSection(
                         title=f"{mode} · {profile} profile",
                         note=f"Only present on the {profile} profile "
-                             f"(from {profile}.toml).",
+                        f"(from {profile}.toml).",
                     )
                     sections.append(overlay_section)
                 overlay_section.entries.append(entry)
@@ -247,8 +260,8 @@ def build_docs(*, profile, rite_dir, **_) -> DocPage:
         summary="Tiling window management, in three binding modes.",
         tags=["aerospace", "window-manager", "macos"],
         body="`main` is the resting mode; `service` and `arrange` are "
-             "temporary modes entered from it and left with Escape — the "
-             "border tint shows which one is live.",
+        "temporary modes entered from it and left with Escape — the "
+        "border tint shows which one is live.",
         source=f"rites/aerospace/base.toml + {profile}.toml (merged)",
         sections=sections,
     )

@@ -4,9 +4,9 @@ import hashlib
 import re
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from detect_secrets import SecretsCollection
 from detect_secrets.settings import default_settings
@@ -15,7 +15,7 @@ from arcana import patch as patch_mod
 from arcana.docs import DocPage
 from arcana.manifest import Manifest
 
-_PROFILE_DIRECTIVE_RE = re.compile(r'#\s*profile:\s*(.+?)\s*$', re.IGNORECASE)
+_PROFILE_DIRECTIVE_RE = re.compile(r"#\s*profile:\s*(.+?)\s*$", re.IGNORECASE)
 
 
 def parse_rite_profiles(rite_path: Path) -> set[str] | None:
@@ -36,7 +36,7 @@ def parse_rite_profiles(rite_path: Path) -> set[str] | None:
     """
     try:
         text = rite_path.read_text()
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return None
     for raw in text.splitlines():
         line = raw.strip()
@@ -93,6 +93,7 @@ class HookOp:
     `unless` is the idempotency guard: when it returns true the hook is
     skipped, and dry run can say so instead of only naming the hook.
     """
+
     name: str
     fn: Callable
     unless: Callable[[], bool] | None = None
@@ -106,6 +107,7 @@ class PatchOp:
     set. `target` is the live file, written in place — the one op that
     doesn't symlink, because the rest of the file isn't ours to move.
     """
+
     filename: str
     target: str
 
@@ -118,6 +120,7 @@ class DocOp:
     docs can't move a symlink or rewrite a tome file. Only `grimoire scribe`
     reads these, via `registered_docs()`.
     """
+
     page: DocPage | Callable
 
 
@@ -126,8 +129,14 @@ class RiteSkipped(Exception):
 
 
 class RiteContext:
-    def __init__(self, profile: str, grimoire_root: Path, tool: str,
-                 force: bool = False, accepting: bool = False):
+    def __init__(
+        self,
+        profile: str,
+        grimoire_root: Path,
+        tool: str,
+        force: bool = False,
+        accepting: bool = False,
+    ):
         self.profile = profile
         self.grimoire_root = grimoire_root
         self.tool = tool
@@ -150,7 +159,9 @@ class RiteContext:
         baseline = self._manifest.hash(self._manifest_key(filename))
         return baseline is not None and _hash_file(dest) != baseline
 
-    def _update_manifest(self, filename: str, kind: str, digest: str | None = None) -> None:
+    def _update_manifest(
+        self, filename: str, kind: str, digest: str | None = None
+    ) -> None:
         key = self._manifest_key(filename)
         self._manifest.record(key, digest or _hash_file(self.tome_dir / filename), kind)
         self._dirty = True
@@ -164,7 +175,9 @@ class RiteContext:
         by_file: dict[str, list[str]] = {}
         for op in self._ops:
             if isinstance(op, LinkOp):
-                by_file.setdefault(op.filename, []).append(str(Path(op.target).expanduser()))
+                by_file.setdefault(op.filename, []).append(
+                    str(Path(op.target).expanduser())
+                )
         for key in self.registered_keys():
             entry = self._manifest.get(key)
             if entry is None:
@@ -189,7 +202,9 @@ class RiteContext:
     def link(self, filename: str, target: str) -> None:
         self._ops.append(LinkOp(filename, target))
 
-    def hook(self, name: str, fn: Callable, *, unless: Callable[[], bool] | None = None) -> None:
+    def hook(
+        self, name: str, fn: Callable, *, unless: Callable[[], bool] | None = None
+    ) -> None:
         """Register imperative setup. `unless()` true means already done: skip."""
         self._ops.append(HookOp(name, fn, unless))
 
@@ -216,7 +231,7 @@ class RiteContext:
     # --- Introspection ---
 
     def registered_keys(self) -> set[str]:
-        """Manifest keys ({tool}/{filename}) this context has registered via copy()/write()."""
+        """Manifest keys ({tool}/{filename}) registered via copy()/write()/patch()."""
         keys: set[str] = set()
         for op in self._ops:
             if isinstance(op, CopyOp):
@@ -275,29 +290,47 @@ class RiteContext:
     def _exec_copy(self, *files: str, dry_run: bool = False) -> None:
         if dry_run:
             for filename in files:
-                print(f"  [dry-run] copy {self.tool}/{filename} → tome/{self.tool}/{filename}")
+                print(
+                    f"  [dry-run] copy {self.tool}/{filename}"
+                    f" → tome/{self.tool}/{filename}"
+                )
             return
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         for filename in files:
             if not self.force and self._is_externally_modified(filename):
-                print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
+                print(
+                    f"  SKIPPED tome/{self.tool}/{filename}"
+                    f" — externally modified (use --force to overwrite)"
+                )
                 continue
             shutil.copy2(self.rite_dir / filename, self.tome_dir / filename)
             self._update_manifest(filename, "copy")
             print(f"  built tome/{self.tool}/{filename}")
 
-    def _exec_write(self, filename: str, content: str | Callable, dry_run: bool = False) -> None:
+    def _exec_write(
+        self, filename: str, content: str | Callable, dry_run: bool = False
+    ) -> None:
         if self.accepting:
-            print(f"  WARNING {self.tool}/{filename} — generated file, needs manual reconciliation")
+            print(
+                f"  WARNING {self.tool}/{filename}"
+                f" — generated file, needs manual reconciliation"
+            )
             return
         if dry_run:
             print(f"  [dry-run] write tome/{self.tool}/{filename}")
             return
         if callable(content):
-            content = content(profile=self.profile, rite_dir=self.rite_dir, grimoire_root=self.grimoire_root)
+            content = content(
+                profile=self.profile,
+                rite_dir=self.rite_dir,
+                grimoire_root=self.grimoire_root,
+            )
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         if not self.force and self._is_externally_modified(filename):
-            print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
+            print(
+                f"  SKIPPED tome/{self.tool}/{filename}"
+                f" — externally modified (use --force to overwrite)"
+            )
             return
         (self.tome_dir / filename).write_text(content)
         self._update_manifest(filename, "write")
@@ -310,14 +343,23 @@ class RiteContext:
                 continue
             rite_file = self.rite_dir / filename
             if not rite_file.exists():
-                print(f"  {self.tool}/{filename}: no matching source — needs manual reconciliation")
+                print(
+                    f"  {self.tool}/{filename}: no matching source"
+                    f" — needs manual reconciliation"
+                )
                 continue
             tome_file = self.tome_dir / filename
             if dry_run:
-                print(f"  [dry-run] accept {self.tool}/{filename} → rites/{self.tool}/{filename}")
+                print(
+                    f"  [dry-run] accept {self.tool}/{filename}"
+                    f" → rites/{self.tool}/{filename}"
+                )
                 continue
             if secrets := _scan_for_secrets(tome_file):
-                print(f"  ERROR {self.tool}/{filename}: potential secrets detected — refusing to accept")
+                print(
+                    f"  ERROR {self.tool}/{filename}: potential secrets detected"
+                    f" — refusing to accept"
+                )
                 for s in secrets:
                     print(f"    line {s['line_number']}: {s['type']}")
                 sys.exit(1)
@@ -393,8 +435,15 @@ class RiteContext:
         except ValueError as e:
             print(f"  ERROR {self.tool}/{filename}: {e} — skipping")
             return
-        if dest.exists() and not self.force and self._patch_externally_modified(filename, doc):
-            print(f"  SKIPPED {dest} — owned keys externally modified (use --force to overwrite)")
+        if (
+            dest.exists()
+            and not self.force
+            and self._patch_externally_modified(filename, doc)
+        ):
+            print(
+                f"  SKIPPED {dest}"
+                f" — owned keys externally modified (use --force to overwrite)"
+            )
             return
         new_paths = patch_mod.leaves(fragment)
         stale = [p for p in self._owned_paths(filename) if p not in new_paths]
@@ -408,14 +457,19 @@ class RiteContext:
         pruned = f", pruned {len(stale)}" if stale else ""
         print(f"  patched {dest} ({len(new_paths)} keys{pruned})")
 
-    def _exec_patch_accept(self, filename: str, target: str, dry_run: bool = False) -> None:
+    def _exec_patch_accept(
+        self, filename: str, target: str, dry_run: bool = False
+    ) -> None:
         source = self.rite_dir / filename
         dest = Path(target).expanduser()
         if not dest.exists():
             print(f"  {self.tool}/{filename}: target {dest} missing — skipping")
             return
         if not source.exists():
-            print(f"  {self.tool}/{filename}: no matching source — needs manual reconciliation")
+            print(
+                f"  {self.tool}/{filename}: no matching source"
+                f" — needs manual reconciliation"
+            )
             return
         try:
             doc = patch_mod.load(dest)
@@ -431,14 +485,20 @@ class RiteContext:
             return
         live, missing = patch_mod.extract(doc, self._owned_paths(filename))
         for path in missing:
-            print(f"  WARNING {self.tool}/{filename}: {'.'.join(path)} missing from target — keeping source value")
+            print(
+                f"  WARNING {self.tool}/{filename}: {'.'.join(path)}"
+                f" missing from target — keeping source value"
+            )
         merged = patch_mod.merge(fragment, live)
         # Scan before touching the source, on the bytes we'd write.
         staging = self.tome_dir / f".{filename}.accept"
         staging.write_bytes(patch_mod.canonical(merged))
         try:
             if secrets := _scan_for_secrets(staging):
-                print(f"  ERROR {self.tool}/{filename}: potential secrets detected — refusing to accept")
+                print(
+                    f"  ERROR {self.tool}/{filename}: potential secrets detected"
+                    f" — refusing to accept"
+                )
                 for s in secrets:
                     print(f"    line {s['line_number']}: {s['type']}")
                 sys.exit(1)

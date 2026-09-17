@@ -28,8 +28,11 @@ def _entries(text: str) -> list[DocEntry]:
         name, expansion = (part.strip() for part in line.split("=", 1))
         # A `!`-prefixed alias runs a shell command rather than a git one, so
         # only the plain ones can be described as `git <expansion>`.
-        description = (expansion.lstrip("!").strip() if expansion.startswith("!")
-                       else f"git {expansion}")
+        description = (
+            expansion.lstrip("!").strip()
+            if expansion.startswith("!")
+            else f"git {expansion}"
+        )
         entries.append(DocEntry(keys=f"git {name}", description=description))
     return entries
 

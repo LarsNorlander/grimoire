@@ -41,7 +41,7 @@ class Entry:
         return out
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Entry":
+    def from_dict(cls, d: dict) -> Entry:
         return cls(
             hash=d["hash"],
             kind=d.get("kind"),
@@ -58,7 +58,7 @@ class Manifest:
     # -- persistence -----------------------------------------------------
 
     @classmethod
-    def load(cls, tome_root: Path) -> "Manifest":
+    def load(cls, tome_root: Path) -> Manifest:
         path = tome_root / FILENAME
         if not path.exists():
             return cls(path)

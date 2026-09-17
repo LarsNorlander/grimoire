@@ -33,11 +33,18 @@ class Persistence(unittest.TestCase):
         m.save()
 
         again = Manifest.load(self.tome)
-        self.assertEqual(again.get("t/a"), Entry(hash="h1", kind="copy", links=["/home/a", "/home/b"]))
-        self.assertEqual(again.get("t/p.json"), Entry(hash="h2", kind="patch", target="/home/p.json"))
+        self.assertEqual(
+            again.get("t/a"),
+            Entry(hash="h1", kind="copy", links=["/home/a", "/home/b"]),
+        )
+        self.assertEqual(
+            again.get("t/p.json"), Entry(hash="h2", kind="patch", target="/home/p.json")
+        )
         data = json.loads((self.tome / ".manifest").read_text())
         self.assertEqual(data["version"], 2)
-        self.assertNotIn("links", data["files"]["t/p.json"], "empty optionals are omitted")
+        self.assertNotIn(
+            "links", data["files"]["t/p.json"], "empty optionals are omitted"
+        )
 
     def test_legacy_lines_are_read_and_rewritten_as_v2(self):
         self.tome.mkdir()

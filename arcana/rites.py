@@ -49,8 +49,14 @@ def allowed_under(path: Path, profile: str) -> bool:
     return allowed is None or profile in allowed
 
 
-def load_rite(path: Path, profile: str, root: Path, *,
-              force: bool = False, accepting: bool = False) -> RiteContext:
+def load_rite(
+    path: Path,
+    profile: str,
+    root: Path,
+    *,
+    force: bool = False,
+    accepting: bool = False,
+) -> RiteContext:
     """Import a rite module and call its `rite(ctx)` to register ops.
 
     Honors `# profile: <names>` frontmatter — if the rite declares profile
@@ -88,8 +94,15 @@ def load_rite(path: Path, profile: str, root: Path, *,
     return ctx
 
 
-def run_rite(path: Path, profile: str, root: Path, *,
-             force: bool, accepting: bool, dry_run: bool = False) -> None:
+def run_rite(
+    path: Path,
+    profile: str,
+    root: Path,
+    *,
+    force: bool,
+    accepting: bool,
+    dry_run: bool = False,
+) -> None:
     try:
         ctx = load_rite(path, profile, root, force=force, accepting=accepting)
     except RiteSkipped as e:
@@ -98,8 +111,14 @@ def run_rite(path: Path, profile: str, root: Path, *,
     ctx.execute(dry_run=dry_run)
 
 
-def build_rites(root: Path, profile: str, *, force: bool, dry_run: bool = False,
-                tools: tuple[str, ...] = ()) -> list[tuple[str, Exception]]:
+def build_rites(
+    root: Path,
+    profile: str,
+    *,
+    force: bool,
+    dry_run: bool = False,
+    tools: tuple[str, ...] = (),
+) -> list[tuple[str, Exception]]:
     """Cast the given rites (all, when none are named).
 
     Returns the failures as (tool, error) pairs rather than exiting, so the

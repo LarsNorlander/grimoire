@@ -41,6 +41,7 @@ class DocEntry:
     `note` is for per-entry caveats that aren't part of the description —
     "repeatable", "no prefix", "tmux default".
     """
+
     keys: str
     description: str
     note: str | None = None
@@ -53,6 +54,7 @@ class DocSection:
     A section needs entries or a `body`; an empty one is a validation error
     downstream rather than something the reader quietly skips.
     """
+
     title: str
     entries: list[DocEntry] = field(default_factory=list)
     note: str | None = None
@@ -67,6 +69,7 @@ class DocPage:
     anything longer. `note` is a short plain-text qualifier — not markdown.
     `generator` is stamped by `grimoire scribe`, so rites leave it unset.
     """
+
     title: str
     sections: list[DocSection] = field(default_factory=list)
     summary: str | None = None
@@ -102,31 +105,37 @@ def _prune(mapping: dict) -> dict:
 
 def to_dict(page: DocPage) -> dict:
     """The page as a schema-shaped dict, empty sections already dropped."""
-    return _prune({
-        "title": page.title,
-        "summary": page.summary,
-        "tags": list(page.tags),
-        "note": page.note,
-        "body": page.body,
-        "source": page.source,
-        "generator": page.generator,
-        "sections": [
-            _prune({
-                "title": section.title,
-                "note": section.note,
-                "body": section.body,
-                "entries": [
-                    _prune({
-                        "keys": entry.keys,
-                        "description": entry.description,
-                        "note": entry.note,
-                    })
-                    for entry in section.entries
-                ],
-            })
-            for section in page.populated()
-        ],
-    })
+    return _prune(
+        {
+            "title": page.title,
+            "summary": page.summary,
+            "tags": list(page.tags),
+            "note": page.note,
+            "body": page.body,
+            "source": page.source,
+            "generator": page.generator,
+            "sections": [
+                _prune(
+                    {
+                        "title": section.title,
+                        "note": section.note,
+                        "body": section.body,
+                        "entries": [
+                            _prune(
+                                {
+                                    "keys": entry.keys,
+                                    "description": entry.description,
+                                    "note": entry.note,
+                                }
+                            )
+                            for entry in section.entries
+                        ],
+                    }
+                )
+                for section in page.populated()
+            ],
+        }
+    )
 
 
 def dumps(page: DocPage) -> str:
@@ -148,8 +157,9 @@ def problems(page: DocPage) -> list[str]:
     if not page.title.strip():
         found.append("title: required, must not be empty")
     if not sections and not (page.body or "").strip():
-        found.append("needs at least one of sections or body, "
-                     "otherwise the page has no content")
+        found.append(
+            "needs at least one of sections or body, otherwise the page has no content"
+        )
     for i, tag in enumerate(page.tags):
         if not tag.strip():
             found.append(f"tags[{i}]: must not be empty")
@@ -176,20 +186,49 @@ def problems(page: DocPage) -> list[str]:
 # something readable is not — that mapping is shared, and lives here.
 
 _MODIFIERS = {
-    "alt": "⌥", "opt": "⌥", "option": "⌥", "m": "⌥",
-    "shift": "⇧", "s": "⇧",
-    "cmd": "⌘", "command": "⌘", "super": "⌘",
-    "ctrl": "⌃", "control": "⌃", "c": "⌃",
+    "alt": "⌥",
+    "opt": "⌥",
+    "option": "⌥",
+    "m": "⌥",
+    "shift": "⇧",
+    "s": "⇧",
+    "cmd": "⌘",
+    "command": "⌘",
+    "super": "⌘",
+    "ctrl": "⌃",
+    "control": "⌃",
+    "c": "⌃",
 }
 
 _NAMED = {
-    "semicolon": ";", "minus": "-", "equal": "=", "plus": "+", "slash": "/",
-    "backslash": "\\", "comma": ",", "period": ".", "quote": "'",
-    "backtick": "`", "leftsquarebracket": "[", "rightsquarebracket": "]",
-    "esc": "⎋", "escape": "⎋", "tab": "⇥", "enter": "↩", "return": "↩",
-    "backspace": "⌫", "delete": "⌦", "space": "Space",
-    "up": "↑", "down": "↓", "left": "←", "right": "→",
-    "pageup": "⇞", "pagedown": "⇟", "home": "↖", "end": "↘",
+    "semicolon": ";",
+    "minus": "-",
+    "equal": "=",
+    "plus": "+",
+    "slash": "/",
+    "backslash": "\\",
+    "comma": ",",
+    "period": ".",
+    "quote": "'",
+    "backtick": "`",
+    "leftsquarebracket": "[",
+    "rightsquarebracket": "]",
+    "esc": "⎋",
+    "escape": "⎋",
+    "tab": "⇥",
+    "enter": "↩",
+    "return": "↩",
+    "backspace": "⌫",
+    "delete": "⌦",
+    "space": "Space",
+    "up": "↑",
+    "down": "↓",
+    "left": "←",
+    "right": "→",
+    "pageup": "⇞",
+    "pagedown": "⇟",
+    "home": "↖",
+    "end": "↘",
 }
 
 

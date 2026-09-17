@@ -3,3 +3,4 @@ tome/
 __pycache__/
 .idea
 result
+.ruff_cache/

@@ -7,3 +7,30 @@ dependencies = [
     "detect-secrets",
     "tomlkit",
 ]
+
+[dependency-groups]
+dev = ["ruff"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# A deliberate baseline rather than ruff's broad defaults: the classic
+# pyflakes/pycodestyle core, import order, modernisation, and the bug-finding
+# families. Style-only and opinion-heavy groups stay off so Zed and the CLI
+# report only what this repo has decided matters.
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "B",        # flake8-bugbear
+    "SIM",      # flake8-simplify
+    "C4",       # comprehensions
+    "ISC",      # implicit string concatenation
+    "PIE",      # misc lints
+    "EXE",      # shebang/executable consistency
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["arcana"]

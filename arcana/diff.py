@@ -9,7 +9,7 @@ Compares three edges of the rite/tome/manifest state graph:
 import difflib
 import hashlib
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from arcana import patch as patch_mod
@@ -17,26 +17,27 @@ from arcana.manifest import Manifest
 from arcana.tome import CopyOp, PatchOp, RiteContext, WriteOp
 
 
-class Kind(str, Enum):
+class Kind(StrEnum):
     COPY = "copy"
     WRITE = "write"
     PATCH = "patch"
 
 
-class Direction(str, Enum):
+class Direction(StrEnum):
     """The three comparison axes a DiffResult carries."""
+
     DRIFT = "drift"
     CAST = "cast"
     ACCEPT = "accept"
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     CLEAN = "."
     MODIFIED = "M"
-    ADDED = "A"          # tome has file that the comparison side doesn't
-    DELETED = "D"        # comparison side has file that tome doesn't
-    UNEVALUATED = "?"    # write() rite, --build not passed
-    NA = "-"             # comparison doesn't apply
+    ADDED = "A"  # tome has file that the comparison side doesn't
+    DELETED = "D"  # comparison side has file that tome doesn't
+    UNEVALUATED = "?"  # write() rite, --build not passed
+    NA = "-"  # comparison doesn't apply
 
 
 # Statuses that represent a real change (for exit codes + conflict detection).
@@ -46,10 +47,11 @@ CHANGED = {Status.MODIFIED, Status.ADDED, Status.DELETED}
 @dataclass
 class FilePlan:
     """One file a rite manages, with everything needed to diff it."""
+
     tool: str
     filename: str
     kind: Kind
-    rite_source: Path | None       # None for write()
+    rite_source: Path | None  # None for write()
     tome_path: Path
     planned_content: bytes | None  # None if write() and --build not set
     # patch(): the owned keys extracted from the live target, canonicalized.
@@ -87,21 +89,24 @@ class DiffResult:
 
 # --- Plan extraction (no disk side effects) ---
 
+
 def plan_rite(ctx: RiteContext, build: bool) -> list[FilePlan]:
-    """Extract FilePlans from a RiteContext that has registered ops but not executed them."""
+    """FilePlans from a RiteContext that has registered ops but not run them."""
     plans: list[FilePlan] = []
     for op in ctx._ops:
         if isinstance(op, CopyOp):
             for f in op.files:
                 src = ctx.rite_dir / f
-                plans.append(FilePlan(
-                    tool=ctx.tool,
-                    filename=f,
-                    kind=Kind.COPY,
-                    rite_source=src,
-                    tome_path=ctx.tome_dir / f,
-                    planned_content=src.read_bytes() if src.exists() else None,
-                ))
+                plans.append(
+                    FilePlan(
+                        tool=ctx.tool,
+                        filename=f,
+                        kind=Kind.COPY,
+                        rite_source=src,
+                        tome_path=ctx.tome_dir / f,
+                        planned_content=src.read_bytes() if src.exists() else None,
+                    )
+                )
         elif isinstance(op, WriteOp):
             content_bytes: bytes | None = None
             if build:
@@ -113,25 +118,29 @@ def plan_rite(ctx: RiteContext, build: bool) -> list[FilePlan]:
                         grimoire_root=ctx.grimoire_root,
                     )
                 content_bytes = raw.encode() if isinstance(raw, str) else raw
-            plans.append(FilePlan(
-                tool=ctx.tool,
-                filename=op.filename,
-                kind=Kind.WRITE,
-                rite_source=None,
-                tome_path=ctx.tome_dir / op.filename,
-                planned_content=content_bytes,
-            ))
+            plans.append(
+                FilePlan(
+                    tool=ctx.tool,
+                    filename=op.filename,
+                    kind=Kind.WRITE,
+                    rite_source=None,
+                    tome_path=ctx.tome_dir / op.filename,
+                    planned_content=content_bytes,
+                )
+            )
         elif isinstance(op, PatchOp):
             src = ctx.rite_dir / op.filename
-            plans.append(FilePlan(
-                tool=ctx.tool,
-                filename=op.filename,
-                kind=Kind.PATCH,
-                rite_source=src,
-                tome_path=ctx.tome_dir / op.filename,
-                planned_content=_source_bytes(src, Kind.PATCH),
-                live_content=_live_patch_content(ctx, op),
-            ))
+            plans.append(
+                FilePlan(
+                    tool=ctx.tool,
+                    filename=op.filename,
+                    kind=Kind.PATCH,
+                    rite_source=src,
+                    tome_path=ctx.tome_dir / op.filename,
+                    planned_content=_source_bytes(src, Kind.PATCH),
+                    live_content=_live_patch_content(ctx, op),
+                )
+            )
         # LinkOp and HookOp have no file-level diff semantics.
     return plans
 
@@ -164,6 +173,7 @@ def _live_patch_content(ctx: RiteContext, op: PatchOp) -> bytes | None:
 
 
 # --- Diff computation ---
+
 
 def compute_diff(plan: FilePlan, manifest: Manifest, build: bool) -> DiffResult:
     if plan.kind == Kind.PATCH:
@@ -226,7 +236,10 @@ _REASONS = {
     (Direction.DRIFT, Status.ADDED): "tome present but no manifest entry",
     (Direction.DRIFT, Status.DELETED): "tome missing — was last-built",
     (Direction.CAST, Status.CLEAN): "clean",
-    (Direction.CAST, Status.MODIFIED): "rite source / generator output differs from tome",
+    (
+        Direction.CAST,
+        Status.MODIFIED,
+    ): "rite source / generator output differs from tome",
     (Direction.CAST, Status.ADDED): "would be created on next cast",
     (Direction.CAST, Status.DELETED): "rite source missing — cast would fail or no-op",
     (Direction.CAST, Status.UNEVALUATED): "write() — pass --build to evaluate",
@@ -274,9 +287,7 @@ def format_summary(results: list[DiffResult], selected: set[Direction]) -> str:
         lines.append("")
 
     # Footer
-    change_count = sum(
-        1 for r in results for d in selected if r.status(d) in CHANGED
-    )
+    change_count = sum(1 for r in results for d in selected if r.status(d) in CHANGED)
     conf_suffix = (
         f" ({conflicts} potential conflict{'s' if conflicts != 1 else ''})"
         if conflicts
@@ -284,7 +295,9 @@ def format_summary(results: list[DiffResult], selected: set[Direction]) -> str:
     )
     file_word = "file" if len(shown) == 1 else "files"
     change_word = "change" if change_count == 1 else "changes"
-    lines.append(f"{len(shown)} {file_word} shown, {change_count} {change_word}{conf_suffix}")
+    lines.append(
+        f"{len(shown)} {file_word} shown, {change_count} {change_word}{conf_suffix}"
+    )
     return "\n".join(lines)
 
 
@@ -293,7 +306,9 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
     for r in results:
         if r.is_clean_in(selected):
             continue
-        parts.append(f"=== {r.plan.tool}/{r.plan.filename}  [{r.plan.kind.value}()] ===")
+        parts.append(
+            f"=== {r.plan.tool}/{r.plan.filename}  [{r.plan.kind.value}()] ==="
+        )
 
         drift = r.status(Direction.DRIFT)
         if Direction.DRIFT in selected and drift != Status.CLEAN:
@@ -308,25 +323,31 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
         cast = r.status(Direction.CAST)
         if Direction.CAST in selected and cast in CHANGED:
             parts.append(f"\n--- cast: {_reason(r.plan.kind, Direction.CAST, cast)}")
-            parts.append(_unified_diff(
-                r.tome_content,
-                r.plan.planned_content,
-                f"tome/{r.plan.tool}/{r.plan.filename}",
-                f"rebuilt {r.plan.tool}/{r.plan.filename}",
-            ))
+            parts.append(
+                _unified_diff(
+                    r.tome_content,
+                    r.plan.planned_content,
+                    f"tome/{r.plan.tool}/{r.plan.filename}",
+                    f"rebuilt {r.plan.tool}/{r.plan.filename}",
+                )
+            )
         elif Direction.CAST in selected and cast == Status.UNEVALUATED:
             parts.append(f"\n--- cast: {_reason(r.plan.kind, Direction.CAST, cast)}")
 
         accept = r.status(Direction.ACCEPT)
         if Direction.ACCEPT in selected and accept in CHANGED:
-            parts.append(f"\n--- accept: {_reason(r.plan.kind, Direction.ACCEPT, accept)}")
+            parts.append(
+                f"\n--- accept: {_reason(r.plan.kind, Direction.ACCEPT, accept)}"
+            )
             source_bytes = _source_bytes(r.plan.rite_source, r.plan.kind)
-            parts.append(_unified_diff(
-                source_bytes,
-                r.tome_content,
-                f"rites/{r.plan.tool}/{r.plan.filename}",
-                f"tome/{r.plan.tool}/{r.plan.filename}",
-            ))
+            parts.append(
+                _unified_diff(
+                    source_bytes,
+                    r.tome_content,
+                    f"rites/{r.plan.tool}/{r.plan.filename}",
+                    f"tome/{r.plan.tool}/{r.plan.filename}",
+                )
+            )
 
         parts.append("")
     return "\n".join(parts)
@@ -335,5 +356,7 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
 def _unified_diff(a: bytes | None, b: bytes | None, a_name: str, b_name: str) -> str:
     a_lines = (a or b"").decode(errors="replace").splitlines(keepends=True)
     b_lines = (b or b"").decode(errors="replace").splitlines(keepends=True)
-    diff = "".join(difflib.unified_diff(a_lines, b_lines, fromfile=a_name, tofile=b_name))
+    diff = "".join(
+        difflib.unified_diff(a_lines, b_lines, fromfile=a_name, tofile=b_name)
+    )
     return diff if diff else "  (no textual diff — files are identical or both empty)"

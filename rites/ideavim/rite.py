@@ -14,7 +14,9 @@ from arcana.tome import RiteContext
 
 _LEADER = re.compile(r'^\s*let\s+mapleader\s*=\s*[\'"](?P<value>.*)[\'"]')
 _WHICHKEY = re.compile(r'^\s*let\s+g:WhichKeyDesc_\w+\s*=\s*[\'"](?P<value>.+)[\'"]')
-_MAP = re.compile(r"^\s*(?P<mode>[nvxio]?)(?:nore)?map\s+(?P<lhs>\S+)\s+(?P<rhs>.+?)\s*$")
+_MAP = re.compile(
+    r"^\s*(?P<mode>[nvxio]?)(?:nore)?map\s+(?P<lhs>\S+)\s+(?P<rhs>.+?)\s*$"
+)
 _HEADER = re.compile(r'^\s*"\s*(?P<dashes>-{2,})\s*(?P<title>.+?)\s*$')
 _ACTION = re.compile(r"^<Action>\((?P<name>\w+)\)$")
 _TOKEN = re.compile(r"<[^>]+>|.")
@@ -102,11 +104,13 @@ def build_docs(*, rite_dir, **_) -> DocPage:
             title = " · ".join(x for x in (group, sub) if x) or "Mappings"
             current = DocSection(title=title)
             sections.append(current)
-        current.entries.append(DocEntry(
-            keys=_keys(lhs, leader),
-            description=description,
-            note=_MODES.get(mode),
-        ))
+        current.entries.append(
+            DocEntry(
+                keys=_keys(lhs, leader),
+                description=description,
+                note=_MODES.get(mode),
+            )
+        )
 
     return DocPage(
         title="IdeaVim",

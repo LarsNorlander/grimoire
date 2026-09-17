@@ -22,9 +22,14 @@ OMZ_DIR = Path.home() / ".oh-my-zsh"
 
 def install_omz():
     subprocess.run(
-        ["sh", "-c",
-         "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
-         " | sh -s - --unattended --keep-zshrc"],
+        [
+            "sh",
+            "-c",
+            (
+                "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+                " | sh -s - --unattended --keep-zshrc"
+            ),
+        ],
         check=True,
     )
 

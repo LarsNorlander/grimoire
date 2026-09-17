@@ -83,7 +83,10 @@ class Write(Root):
             return "generated\n"
 
         self.run_ctx(lambda c: c.write("g", build))
-        self.assertEqual(seen, {"profile": "work", "rite_dir": self.rite_dir, "grimoire_root": self.root})
+        self.assertEqual(
+            seen,
+            {"profile": "work", "rite_dir": self.rite_dir, "grimoire_root": self.root},
+        )
         self.assertEqual(self.tome("g").read_text(), "generated\n")
         self.assertIn("t/g", self.manifest())
 
@@ -163,10 +166,14 @@ class Accept(Root):
     def test_noop_when_unmodified_and_when_source_missing(self):
         self.source("a", "one\n")
         self.run_ctx(lambda c: c.copy("a"))
-        self.assertIn("not modified", self.run_ctx(lambda c: c.copy("a"), accepting=True))
+        self.assertIn(
+            "not modified", self.run_ctx(lambda c: c.copy("a"), accepting=True)
+        )
         (self.rite_dir / "a").unlink()
         self.tome("a").write_text("two\n")
-        self.assertIn("no matching source", self.run_ctx(lambda c: c.copy("a"), accepting=True))
+        self.assertIn(
+            "no matching source", self.run_ctx(lambda c: c.copy("a"), accepting=True)
+        )
 
     def test_refuses_secrets_and_leaves_source_untouched(self):
         self.source("a", "clean\n")
@@ -187,7 +194,10 @@ class Hook(Root):
 
     def test_dry_run_reports_guard_state_without_running(self):
         ran = []
-        out = self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1), unless=lambda: True), dry_run=True)
+        out = self.run_ctx(
+            lambda c: c.hook("h", lambda: ran.append(1), unless=lambda: True),
+            dry_run=True,
+        )
         self.assertIn("already done, would skip", out)
         out = self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1)), dry_run=True)
         self.assertIn("would run", out)

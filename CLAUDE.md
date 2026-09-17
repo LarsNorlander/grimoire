@@ -2,4 +2,4 @@
 
 ## Claude Code
 
-Run `uv run python -m unittest discover -s tests` before proposing a commit.
+Before proposing a commit, run `uv run ruff format .`, `uv run ruff check .`, and `uv run python -m unittest discover -s tests`.
