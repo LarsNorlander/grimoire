@@ -73,7 +73,8 @@ class Persistence(unittest.TestCase):
         m = Manifest.load(self.tome)
         m.record("t/a", "h", "copy")
         self.assertEqual(m.remove("t/a"), Entry(hash="h", kind="copy"))
-        self.assertIsNone(m.remove("t/a"))
+        with self.assertRaises(KeyError):
+            m.remove("t/a")
         self.assertNotIn("t/a", m)
 
 

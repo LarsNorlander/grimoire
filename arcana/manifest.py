@@ -118,8 +118,9 @@ class Manifest:
         if key in self._entries:
             self._entries[key].target = target
 
-    def remove(self, key: str) -> Entry | None:
-        return self._entries.pop(key, None)
+    def remove(self, key: str) -> Entry:
+        """Drop an entry and return it. Missing keys raise KeyError."""
+        return self._entries.pop(key)
 
 
 def _parse_legacy(text: str) -> dict[str, Entry]:

@@ -35,7 +35,7 @@ def merge_service_d(base_binding, work_d_entries):
     (the borders reset and the mode switch), so profile entries land with the
     other monitor moves regardless of how many exit commands there are.
     """
-    current = [str(x) for x in base_binding["d"]]
+    current = list(base_binding["d"])  # keep tomlkit items so quote style survives
     split = (
         max(
             i
@@ -45,7 +45,7 @@ def merge_service_d(base_binding, work_d_entries):
         + 1
     )
     body, tail = current[:split], current[split:]
-    merged = tomlkit.array(body + list(work_d_entries) + tail)
+    merged = tomlkit.item(body + list(work_d_entries) + tail)
     merged.multiline(True)
     base_binding["d"] = merged
 

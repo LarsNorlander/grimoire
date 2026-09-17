@@ -116,7 +116,9 @@ class Link(Root):
         dest = self.home / ".config" / "a"
         self.assertIn("created", out)
         self.assertEqual(dest.readlink(), self.tome("a"))
-        self.assertEqual(self.manifest().get("t/a").links, [str(dest)])
+        entry = self.manifest().get("t/a")
+        assert entry is not None
+        self.assertEqual(entry.links, [str(dest)])
         out = self.run_ctx(self.register)
         self.assertNotIn(str(dest), out)
 
@@ -124,7 +126,9 @@ class Link(Root):
         self.source("a", "x\n")
         self.run_ctx(self.register)
         self.run_ctx(lambda c: c.copy("a"))  # same file, no link registered this pass
-        self.assertEqual(self.manifest().get("t/a").links, [])
+        entry = self.manifest().get("t/a")
+        assert entry is not None
+        self.assertEqual(entry.links, [])
 
     def test_repoints_a_stale_symlink(self):
         self.source("a", "x\n")

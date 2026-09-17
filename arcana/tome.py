@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from detect_secrets import SecretsCollection
+from detect_secrets.core.secrets_collection import SecretsCollection
 from detect_secrets.settings import default_settings
 
 from arcana import patch as patch_mod
@@ -319,12 +319,15 @@ class RiteContext:
         if dry_run:
             print(f"  [dry-run] write tome/{self.tool}/{filename}")
             return
-        if callable(content):
-            content = content(
+        text: str = (
+            content(
                 profile=self.profile,
                 rite_dir=self.rite_dir,
                 grimoire_root=self.grimoire_root,
             )
+            if callable(content)
+            else content
+        )
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         if not self.force and self._is_externally_modified(filename):
             print(
@@ -332,7 +335,7 @@ class RiteContext:
                 f" — externally modified (use --force to overwrite)"
             )
             return
-        (self.tome_dir / filename).write_text(content)
+        (self.tome_dir / filename).write_text(text)
         self._update_manifest(filename, "write")
         print(f"  built tome/{self.tool}/{filename}")
 

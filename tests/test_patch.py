@@ -102,6 +102,7 @@ class RoundTrip(unittest.TestCase):
             {"model": "opus", "perm": {"mode": "ask", "allow": ["a"]}, "tui": "full"},
         )
         entry = Manifest.load(self.root / "tome").get("tool/fragment.json")
+        assert entry is not None
         self.assertEqual((entry.kind, entry.target), ("patch", str(self.target)))
 
         self.target.unlink()

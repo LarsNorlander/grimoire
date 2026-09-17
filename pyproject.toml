@@ -11,6 +11,13 @@ dependencies = [
 [dependency-groups]
 dev = ["ruff"]
 
+[tool.pyright]
+# Standard checking; the re-export rule is off because several
+# dependencies (detect-secrets, tomlkit) expose names without declaring them.
+typeCheckingMode = "standard"
+reportPrivateImportUsage = false
+pythonVersion = "3.14"
+
 [tool.ruff]
 line-length = 88
 

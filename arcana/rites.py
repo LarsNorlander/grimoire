@@ -84,6 +84,8 @@ def load_rite(
                     f"  skipped {tool} — requires {'/'.join(sorted(allowed))} profile"
                 )
     spec = importlib.util.spec_from_file_location(f"grimoire.rites.{tool}", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path} as a module")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     entry = getattr(module, "rite", None)
