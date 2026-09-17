@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# profile: personal
 from arcana.tome import RiteContext
 
 ctx = RiteContext.from_args()
