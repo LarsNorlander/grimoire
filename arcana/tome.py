@@ -88,8 +88,14 @@ class LinkOp:
 
 @dataclass
 class HookOp:
+    """Imperative setup, run on cast.
+
+    `unless` is the idempotency guard: when it returns true the hook is
+    skipped, and dry run can say so instead of only naming the hook.
+    """
     name: str
     fn: Callable
+    unless: Callable[[], bool] | None = None
 
 
 @dataclass
@@ -183,8 +189,9 @@ class RiteContext:
     def link(self, filename: str, target: str) -> None:
         self._ops.append(LinkOp(filename, target))
 
-    def hook(self, name: str, fn: Callable) -> None:
-        self._ops.append(HookOp(name, fn))
+    def hook(self, name: str, fn: Callable, *, unless: Callable[[], bool] | None = None) -> None:
+        """Register imperative setup. `unless()` true means already done: skip."""
+        self._ops.append(HookOp(name, fn, unless))
 
     def patch(self, filename: str, target: str) -> None:
         """Own the keys of JSON fragment `filename` inside the live file `target`.
@@ -255,7 +262,7 @@ class RiteContext:
                     self._exec_link(op.filename, op.target, dry_run=dry_run)
             elif isinstance(op, HookOp):
                 if not self.accepting:
-                    self._exec_hook(op.name, op.fn, dry_run=dry_run)
+                    self._exec_hook(op, dry_run=dry_run)
             elif isinstance(op, PatchOp):
                 if self.accepting:
                     self._exec_patch_accept(op.filename, op.target, dry_run=dry_run)
@@ -339,11 +346,15 @@ class RiteContext:
             print(f"  created {dest} -> {source}")
         dest.symlink_to(source)
 
-    def _exec_hook(self, name: str, fn: Callable, dry_run: bool = False) -> None:
+    def _exec_hook(self, op: HookOp, dry_run: bool = False) -> None:
+        done = bool(op.unless()) if op.unless else False
         if dry_run:
-            print(f"  [dry-run] hook: {name}")
+            state = "already done, would skip" if done else "would run"
+            print(f"  [dry-run] hook: {op.name} — {state}")
             return
-        fn()
+        if done:
+            return
+        op.fn()
 
     # --- patch(): key-level ownership inside a live JSON file ---
 

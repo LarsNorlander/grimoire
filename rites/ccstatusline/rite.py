@@ -9,16 +9,18 @@ from arcana.tome import RiteContext
 # how the zsh rite bootstraps oh-my-zsh. ~/.npm-global/bin is on PATH
 # (see rites/zsh/zshrc), and npm's own prefix is the read-only nix store,
 # so target the writable prefix explicitly.
+PREFIX = Path.home() / ".npm-global"
+
+
 def install_ccstatusline():
-    prefix = Path.home() / ".npm-global"
-    if not (prefix / "bin" / "ccstatusline").exists():
-        subprocess.run(
-            ["npm", "install", "-g", "--prefix", str(prefix), "ccstatusline"],
-            check=True,
-        )
+    subprocess.run(
+        ["npm", "install", "-g", "--prefix", str(PREFIX), "ccstatusline"],
+        check=True,
+    )
 
 
 def rite(ctx: RiteContext) -> None:
-    ctx.hook("install ccstatusline", install_ccstatusline)
+    ctx.hook("install ccstatusline", install_ccstatusline,
+             unless=(PREFIX / "bin" / "ccstatusline").exists)
     ctx.copy("settings.json")
     ctx.link("settings.json", "~/.config/ccstatusline/settings.json")

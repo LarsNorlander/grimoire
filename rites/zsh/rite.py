@@ -17,19 +17,20 @@ def build_grimoire_completion(*, grimoire_root, **_):
     return result.stdout
 
 
+OMZ_DIR = Path.home() / ".oh-my-zsh"
+
+
 def install_omz():
-    omz_dir = Path.home() / ".oh-my-zsh"
-    if not omz_dir.exists():
-        subprocess.run(
-            ["sh", "-c",
-             "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
-             " | sh -s - --unattended --keep-zshrc"],
-            check=True,
-        )
+    subprocess.run(
+        ["sh", "-c",
+         "curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+         " | sh -s - --unattended --keep-zshrc"],
+        check=True,
+    )
 
 
 def rite(ctx: RiteContext) -> None:
-    ctx.hook("install oh-my-zsh", install_omz)
+    ctx.hook("install oh-my-zsh", install_omz, unless=OMZ_DIR.exists)
     ctx.copy("zshrc")
     ctx.link("zshrc", "~/.zshrc")
     ctx.copy(f"{ctx.profile}.zsh")

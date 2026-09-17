@@ -177,6 +177,28 @@ class Accept(Root):
         self.assertEqual((self.rite_dir / "a").read_text(), "clean\n")
 
 
+class Hook(Root):
+    def test_runs_unless_guard_says_done(self):
+        ran = []
+        self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1), unless=lambda: False))
+        self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1), unless=lambda: True))
+        self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1)))
+        self.assertEqual(ran, [1, 1])
+
+    def test_dry_run_reports_guard_state_without_running(self):
+        ran = []
+        out = self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1), unless=lambda: True), dry_run=True)
+        self.assertIn("already done, would skip", out)
+        out = self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1)), dry_run=True)
+        self.assertIn("would run", out)
+        self.assertEqual(ran, [])
+
+    def test_hook_is_inert_in_accept_mode(self):
+        ran = []
+        self.run_ctx(lambda c: c.hook("h", lambda: ran.append(1)), accepting=True)
+        self.assertEqual(ran, [])
+
+
 class Registration(Root):
     def test_registered_keys_cover_only_file_producing_ops(self):
         ctx = RiteContext("work", self.root, "t")
