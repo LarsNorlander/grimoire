@@ -23,8 +23,11 @@ from arcana.tome import (
 
 sys.dont_write_bytecode = True  # rite scripts are extension-less; no point caching
 
-GRIMOIRE_ROOT = Path.home() / ".grimoire"
-PROFILE_FILE = Path.home() / ".grimoire-profile"
+# The bash wrapper guarantees ~/.grimoire points at the checkout, so that is
+# the default. The env overrides exist so tests (and ad-hoc checks) can aim
+# the CLI at a throwaway root and profile without touching the real machine.
+GRIMOIRE_ROOT = Path(os.environ.get("GRIMOIRE_ROOT") or Path.home() / ".grimoire")
+PROFILE_FILE = Path(os.environ.get("GRIMOIRE_PROFILE_FILE") or Path.home() / ".grimoire-profile")
 VALID_PROFILES = ("work", "personal")
 
 # Where `scribe` writes when nothing overrides it. This is homepage's own

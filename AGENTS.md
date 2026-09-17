@@ -28,6 +28,7 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 ## Development notes
 
 - Python version and dependencies are authoritative in `pyproject.toml`.
+- Run the tests with `uv run python -m unittest discover -s tests`. They drive the CLI against a temp root via the `GRIMOIRE_ROOT` and `GRIMOIRE_PROFILE_FILE` env overrides; never against `~/.grimoire`.
 - Scripts should use shebangs, have no file extensions, and be executable.
 - Keep README aligned with user-visible behavior changes, but avoid duplicating `--help` output or exhaustive file lists.
 - Before committing, check staged changes for secrets, credentials, tokens, and private keys.
