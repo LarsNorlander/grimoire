@@ -1,4 +1,4 @@
-"""Builds aerospace.toml from base config + optional work overlay.
+"""Builds aerospace.toml from base config + the profile overlay.
 
 Also derives a cheatsheet from the *merged* result rather than from base.toml,
 so the page shows what this machine's profile actually produces — overlay
@@ -8,6 +8,7 @@ bindings included, and no bindings the current profile doesn't have.
 import re
 
 import tomlkit
+from tomlkit.items import Table
 
 from arcana.docs import DocEntry, DocPage, DocSection, chord
 from arcana.tome import RiteContext
@@ -28,51 +29,38 @@ def merge_into_table(base_table, overlay_table):
             base_table.add(key, value)
 
 
-def merge_service_d(base_binding, work_d_entries):
-    """Insert work 'd' entries before the trailing exit commands.
+def apply_directives(doc) -> None:
+    """Consume the [grimoire] table: instructions for this rite, not AeroSpace.
 
-    The tail is everything after the last move-workspace-to-monitor command
-    (the borders reset and the mode switch), so profile entries land with the
-    other monitor moves regardless of how many exit commands there are.
+    `service-d` assembles the service mode's `d` as base's list, then the
+    profile's `before-exit` entries (already concatenated in by the overlay
+    merge), then `exit`. Anything else under [grimoire] is a typo: fail rather
+    than let a misnamed directive silently do nothing.
     """
-    current = list(base_binding["d"])  # keep tomlkit items so quote style survives
-    split = (
-        max(
-            i
-            for i, cmd in enumerate(current)
-            if cmd.startswith("move-workspace-to-monitor")
-        )
-        + 1
-    )
-    body, tail = current[:split], current[split:]
-    merged = tomlkit.item(body + list(work_d_entries) + tail)
+    directives = doc.pop("grimoire", {})
+    service_d = directives.pop("service-d", {})
+    exit_tail = list(service_d.pop("exit"))
+    before_exit = list(service_d.pop("before-exit", []))
+    leftover = list(service_d) + list(directives)
+    if leftover:
+        raise ValueError(f"unknown [grimoire] directive(s): {', '.join(leftover)}")
+
+    binding: Table = doc["mode"]["service"]["binding"]
+    merged = tomlkit.item(list(binding["d"]) + before_exit + exit_tail)
     merged.multiline(True)
-    base_binding["d"] = merged
+    binding["d"] = merged
 
 
 def build_aerospace(*, profile, rite_dir, **_):
     with open(rite_dir / "base.toml") as f:
         doc = tomlkit.load(f)
 
-    overlay_file = {"work": "work.toml", "personal": "personal.toml"}.get(profile)
-    if overlay_file:
-        with open(rite_dir / overlay_file) as f:
-            overlay = tomlkit.load(f)
+    overlay_path = rite_dir / f"{profile}.toml"
+    if overlay_path.exists():
+        with open(overlay_path) as f:
+            merge_into_table(doc, tomlkit.load(f))
 
-        profile_d_entries = None
-        if "mode" in overlay:
-            service_binding = (
-                overlay.get("mode", {}).get("service", {}).get("binding", {})
-            )
-            if "d" in service_binding:
-                profile_d_entries = list(service_binding["d"])
-                del service_binding["d"]
-
-        merge_into_table(doc, overlay)
-
-        if profile_d_entries:
-            merge_service_d(doc["mode"]["service"]["binding"], profile_d_entries)
-
+    apply_directives(doc)
     return tomlkit.dumps(doc)
 
 

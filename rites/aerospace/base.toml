@@ -139,6 +139,8 @@ on-mode-changed = []
     # each entry names the preferred display and falls back to `main`. Don't rely
     # on `main`/`secondary` alone: which display is 'main' is a System Settings
     # choice that moves, and `secondary` only resolves with exactly two monitors.
+    # `d` is assembled by the rite: this list, then the profile's additions,
+    # then [grimoire.service-d].exit — see there for the always-last commands.
     d = [
         'move-workspace-to-monitor --workspace TTY dell LS34A650U main',
         'move-workspace-to-monitor --workspace Workbench LS34A650U U4025QW main',
@@ -147,9 +149,6 @@ on-mode-changed = []
         'move-workspace-to-monitor --workspace Desk built-in main',
         'move-workspace-to-monitor --workspace Claude built-in main',
         'move-workspace-to-monitor --workspace Music built-in main',
-        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.spotify.client=Music com.anthropic.claudefordesktop=Claude com.mitchellh.ghostty=TTY+Workbench company.thebrowser.dia=Sideboard+Workbench dev.zed.Zed=Workbench com.jetbrains.WebStorm=Workbench',
-        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main',
-        'mode main',
     ] # workspaces back to their monitors, stray windows back to their homes
 
 [mode.arrange.binding]
@@ -222,3 +221,12 @@ on-mode-changed = []
 
     # exit
     esc = ['exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main', 'mode main']
+
+[grimoire.service-d]
+    # Directives for the rite, not for AeroSpace. Consumed at build time and
+    # never written to the generated file.
+    exit = [
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.spotify.client=Music com.anthropic.claudefordesktop=Claude com.mitchellh.ghostty=TTY+Workbench company.thebrowser.dia=Sideboard+Workbench dev.zed.Zed=Workbench com.jetbrains.WebStorm=Workbench',
+        'exec-and-forget $HOME/.grimoire/cantrips/aerospace/tint-borders main',
+        'mode main',
+    ]

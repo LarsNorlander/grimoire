@@ -4,9 +4,10 @@ persistent-workspaces = ["Discord"]
     alt-5 = 'workspace Discord'
     alt-shift-5 = ['move-node-to-workspace Discord', 'workspace Discord']
 
-[mode.service.binding]
-    # Entries to insert into 'd' before the exit commands
-    d = [
+[grimoire.service-d]
+    # Rite directive, not an AeroSpace binding: spliced into service-mode `d`
+    # after base's own entries and before its exit commands.
+    before-exit = [
         'move-workspace-to-monitor --workspace Discord built-in main',
         'exec-and-forget $HOME/.grimoire/cantrips/aerospace/place-windows com.hnc.Discord=Discord',
         'workspace Discord',

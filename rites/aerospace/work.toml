@@ -8,9 +8,10 @@ persistent-workspaces = ["Slack", "Notion", "Chrome"]
     alt-shift-8 = ['move-node-to-workspace Notion', 'workspace Notion']
     alt-shift-9 = ['move-node-to-workspace Chrome', 'workspace Chrome']
 
-[mode.service.binding]
-    # Entries to insert into 'd' before the exit commands
-    d = [
+[grimoire.service-d]
+    # Rite directive, not an AeroSpace binding: spliced into service-mode `d`
+    # after base's own entries and before its exit commands.
+    before-exit = [
         'move-workspace-to-monitor --workspace Slack built-in main',
         'move-workspace-to-monitor --workspace Notion built-in main',
         'move-workspace-to-monitor --workspace Chrome built-in main',
