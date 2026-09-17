@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Applies ideavimrc, and derives a cheatsheet from that same file.
 
 Three things in the file carry intent the `map` lines don't: the `" -- Title`
@@ -118,7 +117,7 @@ def build_docs(*, rite_dir, **_) -> DocPage:
     )
 
 
-ctx = RiteContext.from_args()
-ctx.copy("ideavimrc")
-ctx.link("ideavimrc", "~/.config/ideavim/ideavimrc")
-ctx.doc(build_docs)
+def rite(ctx: RiteContext) -> None:
+    ctx.copy("ideavimrc")
+    ctx.link("ideavimrc", "~/.config/ideavim/ideavimrc")
+    ctx.doc(build_docs)

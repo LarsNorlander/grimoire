@@ -17,11 +17,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-RITE = """#!/usr/bin/env python3
-from arcana.tome import RiteContext
-ctx = RiteContext.from_args()
-ctx.copy("config")
-ctx.link("config", "{target}")
+RITE = """from arcana.tome import RiteContext
+
+def rite(ctx: RiteContext) -> None:
+    ctx.copy("config")
+    ctx.link("config", "{target}")
 """
 
 
@@ -36,9 +36,7 @@ class Harness(unittest.TestCase):
         rite_dir = self.root / "rites" / "tool"
         rite_dir.mkdir(parents=True)
         (rite_dir / "config").write_text("setting = 1\n")
-        rite = rite_dir / "rite"
-        rite.write_text(RITE.format(target=self.target))
-        rite.chmod(0o755)
+        (rite_dir / "rite.py").write_text(RITE.format(target=self.target))
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -107,8 +105,7 @@ class Verbs(Harness):
         other = self.root / "rites" / "other"
         other.mkdir()
         (other / "config").write_text("x\n")
-        (other / "rite").write_text(RITE.format(target=Path(self.tmp.name, "home", "other")))
-        (other / "rite").chmod(0o755)
+        (other / "rite.py").write_text(RITE.format(target=Path(self.tmp.name, "home", "other")))
         r = self.grimoire("cast")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("Pruning stale manifest entries", r.stdout)
@@ -118,9 +115,8 @@ class Verbs(Harness):
         self.assertNotIn("may now be dangling", r.stdout)
 
     def test_profile_gate_skips_rite(self):
-        rite = self.root / "rites" / "tool" / "rite"
-        rite.write_text(rite.read_text().replace(
-            "#!/usr/bin/env python3\n", "#!/usr/bin/env python3\n# profile: personal\n", 1))
+        rite = self.root / "rites" / "tool" / "rite.py"
+        rite.write_text("# profile: personal\n" + rite.read_text())
         r = self.grimoire("cast")
         self.assertIn("skipped tool", r.stdout)
         self.assertFalse((self.root / "tome" / "tool").exists())

@@ -6,7 +6,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, ClassVar
+from typing import Callable
 
 from detect_secrets import SecretsCollection
 from detect_secrets.settings import default_settings
@@ -120,8 +120,6 @@ class RiteSkipped(Exception):
 
 
 class RiteContext:
-    _current: ClassVar["RiteContext | None"] = None
-
     def __init__(self, profile: str, grimoire_root: Path, tool: str,
                  force: bool = False, accepting: bool = False):
         self.profile = profile
@@ -135,38 +133,6 @@ class RiteContext:
         self._manifest = Manifest.load(self._tome_root)
         self._dirty = False
         self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | PatchOp | DocOp] = []
-
-    @classmethod
-    def from_args(cls) -> "RiteContext":
-        """Return the context a rite should register operations against.
-
-        Two modes:
-
-        - **CLI dispatch** (the common case): the CLI pre-populates `_current`
-          via `_load_rite` before importing the rite module. We return that.
-        - **Standalone invocation** (for debugging a single rite without the
-          CLI): `./rites/<tool>/rite <profile> <grimoire_root> [--force] [--accept]`.
-          Parse argv, honor any `# profile:` frontmatter, build a fresh
-          context, and register `execute()` via atexit so the rite's
-          declarative ops run at process exit.
-        """
-        if cls._current is not None:
-            return cls._current
-        import atexit
-        profile = sys.argv[1]
-        grimoire_root = Path(sys.argv[2])
-        force = "--force" in sys.argv[3:]
-        accepting = "--accept" in sys.argv[3:]
-        rite_path = Path(sys.argv[0]).resolve()
-        tool = rite_path.parent.name
-        if not accepting:
-            allowed = parse_rite_profiles(rite_path)
-            if allowed and profile not in allowed:
-                print(f"  skipped {tool} — requires {'/'.join(sorted(allowed))} profile")
-                sys.exit(0)
-        ctx = cls(profile, grimoire_root, tool, force=force, accepting=accepting)
-        atexit.register(ctx.execute)
-        return ctx
 
     def _manifest_key(self, filename: str) -> str:
         return f"{self.tool}/{filename}"

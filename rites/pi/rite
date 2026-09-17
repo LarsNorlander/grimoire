@@ -1,8 +1,0 @@
-#!/usr/bin/env python3
-# profile: personal
-from arcana.tome import RiteContext
-
-ctx = RiteContext.from_args()
-ctx.copy("AGENTS.md", "settings.json")
-ctx.link("AGENTS.md", "~/.pi/agent/AGENTS.md")
-ctx.link("settings.json", "~/.pi/agent/settings.json")

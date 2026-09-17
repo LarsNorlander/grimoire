@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Builds aerospace.toml from base config + optional work overlay.
 
 Also derives a cheatsheet from the *merged* result rather than from base.toml,
@@ -255,7 +254,7 @@ def build_docs(*, profile, rite_dir, **_) -> DocPage:
     )
 
 
-ctx = RiteContext.from_args()
-ctx.write("aerospace.toml", build_aerospace)
-ctx.link("aerospace.toml", "~/.config/aerospace/aerospace.toml")
-ctx.doc(build_docs)
+def rite(ctx: RiteContext) -> None:
+    ctx.write("aerospace.toml", build_aerospace)
+    ctx.link("aerospace.toml", "~/.config/aerospace/aerospace.toml")
+    ctx.doc(build_docs)

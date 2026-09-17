@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import subprocess
 from pathlib import Path
 
@@ -29,5 +28,5 @@ def install_node():
     _nvm('nvm install --lts && nvm alias default "lts/*"', check=True)
 
 
-ctx = RiteContext.from_args()
-ctx.hook("install node (lts) via nvm", install_node)
+def rite(ctx: RiteContext) -> None:
+    ctx.hook("install node (lts) via nvm", install_node)

@@ -13,10 +13,10 @@ from arcana import rites
 from arcana.manifest import Entry, Manifest
 from arcana.tome import RiteSkipped
 
-RITE = """#!/usr/bin/env python3
-{directive}from arcana.tome import RiteContext
-ctx = RiteContext.from_args()
-ctx.copy({files})
+RITE = """{directive}from arcana.tome import RiteContext
+
+def rite(ctx: RiteContext) -> None:
+    ctx.copy({files})
 """
 
 
@@ -29,15 +29,14 @@ class Root(unittest.TestCase):
         self.tmp.cleanup()
 
     def add_rite(self, tool: str, *files: str, profile: str | None = None,
-                 executable: bool = True) -> Path:
+                 name: str = "rite.py") -> Path:
         d = self.root / "rites" / tool
         d.mkdir(parents=True)
         for f in files:
             (d / f).write_text(f"{f}\n")
-        path = d / "rite"
+        path = d / name
         directive = f"# profile: {profile}\n" if profile else ""
         path.write_text(RITE.format(directive=directive, files=", ".join(repr(f) for f in files)))
-        path.chmod(0o755 if executable else 0o644)
         return path
 
     def tome(self, key: str) -> Path:
@@ -59,11 +58,17 @@ class Root(unittest.TestCase):
 
 
 class Discovery(Root):
-    def test_all_rites_sorted_and_executable_only(self):
+    def test_all_rites_sorted_and_parked_ones_skipped(self):
         self.add_rite("b", "x")
         self.add_rite("a", "x")
-        self.add_rite("parked", "x", executable=False)
+        self.add_rite("parked", "x", name="rite.py.off")
         self.assertEqual([p.parent.name for p in rites.discover(self.root)], ["a", "b"])
+
+    def test_module_without_rite_function_is_rejected(self):
+        path = self.add_rite("t", "x")
+        path.write_text("x = 1\n")
+        with self.assertRaises(TypeError):
+            rites.load_rite(path, "work", self.root)
 
     def test_named_rite_must_exist(self):
         self.add_rite("a", "x")

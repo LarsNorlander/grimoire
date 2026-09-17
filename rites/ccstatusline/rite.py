@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import subprocess
 from pathlib import Path
 
@@ -19,7 +18,7 @@ def install_ccstatusline():
         )
 
 
-ctx = RiteContext.from_args()
-ctx.hook("install ccstatusline", install_ccstatusline)
-ctx.copy("settings.json")
-ctx.link("settings.json", "~/.config/ccstatusline/settings.json")
+def rite(ctx: RiteContext) -> None:
+    ctx.hook("install ccstatusline", install_ccstatusline)
+    ctx.copy("settings.json")
+    ctx.link("settings.json", "~/.config/ccstatusline/settings.json")

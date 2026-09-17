@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import subprocess
 from pathlib import Path
@@ -29,11 +28,11 @@ def install_omz():
         )
 
 
-ctx = RiteContext.from_args()
-ctx.hook("install oh-my-zsh", install_omz)
-ctx.copy("zshrc")
-ctx.link("zshrc", "~/.zshrc")
-ctx.copy(f"{ctx.profile}.zsh")
-ctx.link(f"{ctx.profile}.zsh", "~/.config/zsh/profile.zsh")
-ctx.write("grimoire_completion", build_grimoire_completion)
-ctx.link("grimoire_completion", "~/.config/zsh/completions/_grimoire")
+def rite(ctx: RiteContext) -> None:
+    ctx.hook("install oh-my-zsh", install_omz)
+    ctx.copy("zshrc")
+    ctx.link("zshrc", "~/.zshrc")
+    ctx.copy(f"{ctx.profile}.zsh")
+    ctx.link(f"{ctx.profile}.zsh", "~/.config/zsh/profile.zsh")
+    ctx.write("grimoire_completion", build_grimoire_completion)
+    ctx.link("grimoire_completion", "~/.config/zsh/completions/_grimoire")

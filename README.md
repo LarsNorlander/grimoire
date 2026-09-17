@@ -38,7 +38,7 @@ After bootstrap, use the narrower verbs for day-to-day work. Run `grimoire --hel
 
 ## Rites and drift
 
-A rite is an executable script that registers operations with `RiteContext`:
+A rite is a Python module, `rites/<tool>/rite.py`, whose `rite(ctx)` function registers operations with `RiteContext`:
 
 - `copy()` copies source files from the rite into `tome/`.
 - `write()` generates files into `tome/` from Python builders.

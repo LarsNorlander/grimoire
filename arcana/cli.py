@@ -166,7 +166,7 @@ def _cast(profile: str, *, force: bool, dry_run: bool = False,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _complete_tool_names(ctx, param, incomplete: str) -> list[str]:
-    """Shell-completion callback: enumerate rites/*/rite as candidates.
+    """Shell-completion callback: enumerate rites/*/rite.py as candidates.
 
     If a profile is set, filters out rites whose `# profile:` frontmatter
     excludes it. Reads the same directive `rites.load_rite` checks at runtime,

@@ -7,9 +7,7 @@ cast reads as one stream.
 """
 
 import importlib.util
-import os
 import sys
-from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 from arcana.manifest import Manifest
@@ -25,15 +23,14 @@ class RiteNotFound(Exception):
 
 
 def rite_path(root: Path, tool: str) -> Path:
-    return root / "rites" / tool / "rite"
+    return root / "rites" / tool / "rite.py"
 
 
 def discover(root: Path, tools: tuple[str, ...] = ()) -> list[Path]:
     """Rite scripts to operate on.
 
     Named tools must exist (``RiteNotFound`` otherwise). With no names, every
-    executable ``rites/*/rite`` in sorted order — a non-executable rite is
-    treated as parked, not broken.
+    ``rites/*/rite.py`` in sorted order. To park a rite, rename the file.
     """
     if tools:
         paths = []
@@ -43,7 +40,7 @@ def discover(root: Path, tools: tuple[str, ...] = ()) -> list[Path]:
                 raise RiteNotFound(tool)
             paths.append(path)
         return paths
-    return sorted(p for p in root.glob("rites/*/rite") if os.access(p, os.X_OK))
+    return sorted(root.glob("rites/*/rite.py"))
 
 
 def allowed_under(path: Path, profile: str) -> bool:
@@ -54,12 +51,15 @@ def allowed_under(path: Path, profile: str) -> bool:
 
 def load_rite(path: Path, profile: str, root: Path, *,
               force: bool = False, accepting: bool = False) -> RiteContext:
-    """Execute a rite module so its ops register on a new RiteContext.
+    """Import a rite module and call its `rite(ctx)` to register ops.
 
     Honors `# profile: <names>` frontmatter — if the rite declares profile
     compatibility and we're not in accept mode, raises ``RiteSkipped`` before
     the module is imported. Accept mode bypasses the gate (you might want to
     salvage files from a work-profile rite while on personal).
+
+    Nothing runs at import: a rite is a module with one function, so the
+    context is passed in rather than fetched from shared state.
     """
     tool = path.parent.name
     if not accepting:
@@ -77,16 +77,14 @@ def load_rite(path: Path, profile: str, root: Path, *,
                 raise RiteSkipped(
                     f"  skipped {tool} — requires {'/'.join(sorted(allowed))} profile"
                 )
+    spec = importlib.util.spec_from_file_location(f"grimoire.rites.{tool}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    entry = getattr(module, "rite", None)
+    if not callable(entry):
+        raise TypeError(f"{path} must define rite(ctx)")
     ctx = RiteContext(profile, root, tool, force=force, accepting=accepting)
-    RiteContext._current = ctx
-    try:
-        spec = importlib.util.spec_from_file_location(
-            "rite", path, loader=SourceFileLoader("rite", str(path))
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-    finally:
-        RiteContext._current = None
+    entry(ctx)
     return ctx
 
 

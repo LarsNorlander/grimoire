@@ -12,7 +12,7 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 
 - `grimoire` is the thin bash wrapper: ensure Nix/uv/Python are available, then delegate.
 - `arcana/` owns CLI behavior and shared rite machinery.
-- `rites/<tool>/rite` files describe each tool's managed files using `RiteContext`; keep tool-specific logic in the rite, not the wrapper.
+- `rites/<tool>/rite.py` is a module exposing `rite(ctx: RiteContext)`, which registers the tool's managed files; keep tool-specific logic in the rite, not the wrapper. To park a rite, rename the file.
 - `runes/` owns nix-darwin system configuration.
 - `tome/` is gitignored build output. Symlinks should point to `tome/`, never directly to tracked rite sources.
 
@@ -29,6 +29,6 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 
 - Python version and dependencies are authoritative in `pyproject.toml`.
 - Run the tests with `uv run python -m unittest discover -s tests`. They drive the CLI against a temp root via the `GRIMOIRE_ROOT` and `GRIMOIRE_PROFILE_FILE` env overrides; never against `~/.grimoire`.
-- Scripts should use shebangs, have no file extensions, and be executable.
+- Scripts (`grimoire`, cantrips) use shebangs, have no file extensions, and are executable. Rites are modules, not scripts.
 - Keep README aligned with user-visible behavior changes, but avoid duplicating `--help` output or exhaustive file lists.
 - Before committing, check staged changes for secrets, credentials, tokens, and private keys.

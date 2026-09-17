@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Applies gitconfig, and derives an alias cheatsheet from that same file.
 
 Only `[alias]` is worth a sheet: the rest of the file is behaviour (signing,
@@ -46,7 +45,7 @@ def build_docs(*, rite_dir, **_) -> DocPage:
     )
 
 
-ctx = RiteContext.from_args()
-ctx.copy("gitconfig")
-ctx.link("gitconfig", "~/.config/git/config")
-ctx.doc(build_docs)
+def rite(ctx: RiteContext) -> None:
+    ctx.copy("gitconfig")
+    ctx.link("gitconfig", "~/.config/git/config")
+    ctx.doc(build_docs)
