@@ -10,6 +10,7 @@ import click
 
 from arcana import diff as diff_mod
 from arcana import docs as docs_mod
+from arcana import repo as repo_mod
 from arcana import rites as rites_mod
 from arcana.manifest import Manifest
 from arcana.rites import VALID_PROFILES, RiteNotFound
@@ -302,6 +303,70 @@ def summon(familiar: str, cmd: tuple[str, ...]) -> None:
 
     result = subprocess.run(args)
     sys.exit(result.returncode)
+
+
+# Self-maintenance ────────────────────────────────────────────────────────────
+
+
+@grimoire.command()
+@click.pass_context
+def update(cli_ctx: click.Context) -> None:
+    """Fast-forward this checkout to its upstream, or say why it can't.
+
+    Never merges, rebases, stashes, or resets: with local commits or
+    uncommitted changes in the way, it reports them and leaves the
+    reconciliation to git, where the history is.
+    """
+    click.echo(f"Updating grimoire at {GRIMOIRE_ROOT}\n")
+    u = repo_mod.update(GRIMOIRE_ROOT)
+    short = u.new_head[:7] or u.old_head[:7]
+
+    match u.outcome:
+        case repo_mod.Outcome.UP_TO_DATE:
+            click.echo(f"Already up to date at {short}.")
+        case repo_mod.Outcome.AHEAD:
+            n = len(u.local_only)
+            click.echo(
+                f"Up to date with upstream at {short};"
+                f" {n} local commit(s) not yet pushed:"
+            )
+            for line in u.local_only:
+                click.echo(f"  {line}")
+        case repo_mod.Outcome.FAST_FORWARDED:
+            click.echo(f"Fast-forwarded {u.old_head[:7]}..{u.new_head[:7]}:")
+            for line in u.incoming:
+                click.echo(f"  {line}")
+            if verbs := u.suggests():
+                click.echo("\nNext: " + " and ".join(f"`grimoire {v}`" for v in verbs))
+        case repo_mod.Outcome.DIRTY:
+            click.echo("Uncommitted changes in the checkout — not updating:", err=True)
+            for line in u.dirty_files:
+                click.echo(f"  {line}", err=True)
+            click.echo(
+                "\nCommit or stash them, then run `grimoire update` again.", err=True
+            )
+            cli_ctx.exit(1)
+        case repo_mod.Outcome.DIVERGED:
+            click.echo(
+                "Local commits upstream doesn't have — can't fast-forward:", err=True
+            )
+            for line in u.local_only:
+                click.echo(f"  {line}", err=True)
+            click.echo(
+                "\nReconcile with git (rebase or merge onto the upstream), "
+                "then run `grimoire update` again.",
+                err=True,
+            )
+            cli_ctx.exit(1)
+        case repo_mod.Outcome.NO_UPSTREAM:
+            click.echo(f"No upstream configured for this branch: {u.error}", err=True)
+            cli_ctx.exit(1)
+        case repo_mod.Outcome.FETCH_FAILED:
+            click.echo(f"Fetch failed: {u.error}", err=True)
+            cli_ctx.exit(1)
+        case repo_mod.Outcome.MERGE_FAILED:
+            click.echo(f"Fast-forward failed: {u.error}", err=True)
+            cli_ctx.exit(1)
 
 
 # Compound verb ───────────────────────────────────────────────────────────────

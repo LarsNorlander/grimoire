@@ -32,6 +32,7 @@ After bootstrap, use the narrower verbs for day-to-day work. Run `grimoire --hel
 - `grimoire cast [tool ...]` — apply rites, rebuilding tome files and refreshing symlinks.
 - `grimoire diff [tool]` — inspect drift between rite sources, tome files, and the manifest.
 - `grimoire accept <tool ...>` — copy externally edited tome files back to rite sources where possible.
+- `grimoire update` — fast-forward the checkout to its upstream; with local commits or uncommitted changes in the way, it reports them and leaves the reconciliation to git.
 - `grimoire profile` — show or change the current profile.
 - `grimoire summon <name>` — enter an ephemeral familiar shell, or run one command in it with `--`.
 - `grimoire scribe [tool ...]` — generate cheatsheet JSON from rites that document themselves.
