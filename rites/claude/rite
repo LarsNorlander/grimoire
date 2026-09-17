@@ -2,6 +2,5 @@
 from arcana.tome import RiteContext
 
 ctx = RiteContext.from_args()
-ctx.copy("settings.json", "CLAUDE.md")
-ctx.link("settings.json", "~/.claude/settings.json")
+ctx.copy("CLAUDE.md")
 ctx.link("CLAUDE.md", "~/.claude/CLAUDE.md")
