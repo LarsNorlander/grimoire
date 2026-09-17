@@ -38,10 +38,6 @@ class Harness(unittest.TestCase):
         rite = rite_dir / "rite"
         rite.write_text(RITE.format(target=self.target))
         rite.chmod(0o755)
-        # `_ensure_prerequisites` syncs the root's venv when it looks stale.
-        # A data-only root has nothing to sync, so make it look fresh.
-        (self.root / "uv.lock").touch()
-        (self.root / ".venv").mkdir()
 
     def tearDown(self):
         self.tmp.cleanup()
