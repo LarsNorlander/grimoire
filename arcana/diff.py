@@ -148,6 +148,10 @@ def _source_bytes(src: Path | None, kind: Kind) -> bytes | None:
 
 
 def _live_patch_content(ctx: RiteContext, op: PatchOp) -> bytes | None:
+    # Nothing applied yet means nothing to compare: report as never cast,
+    # not as an unexpected empty fragment.
+    if not ctx._owned_paths(op.filename):
+        return None
     target = Path(op.target).expanduser()
     if not target.exists():
         return None
