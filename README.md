@@ -43,10 +43,11 @@ A rite is an executable script that registers operations with `RiteContext`:
 - `copy()` copies source files from the rite into `tome/`.
 - `write()` generates files into `tome/` from Python builders.
 - `link()` creates user-facing symlinks to `tome/`.
+- `patch()` owns selected keys inside a JSON file the machine otherwise owns. The rite holds a fragment; its leaf keys are merged into the live file in place, so this is the one operation that writes a real file instead of symlinking. Arrays are replaced whole, not merged.
 - `hook()` performs necessary imperative setup.
 - `doc()` registers cheatsheet data for `grimoire scribe`.
 
-`tome/.manifest` records hashes of built files. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation.
+`tome/.manifest` records hashes of built files. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation. For `patch()` files, drift and accept look only at the owned keys; the rest of the file is free to change.
 
 Profile-specific rites use a header directive:
 

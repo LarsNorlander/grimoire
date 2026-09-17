@@ -11,6 +11,7 @@ from typing import Callable, ClassVar
 from detect_secrets import SecretsCollection
 from detect_secrets.settings import default_settings
 
+from arcana import patch as patch_mod
 from arcana.docs import DocPage
 
 MANIFEST_FILENAME = ".manifest"
@@ -112,6 +113,18 @@ class HookOp:
 
 
 @dataclass
+class PatchOp:
+    """Own a set of keys inside a JSON file the machine otherwise owns.
+
+    `filename` is a fragment in the rite dir; its leaf keys are the owned
+    set. `target` is the live file, written in place — the one op that
+    doesn't symlink, because the rest of the file isn't ours to move.
+    """
+    filename: str
+    target: str
+
+
+@dataclass
 class DocOp:
     """Documentation content a rite offers about itself.
 
@@ -141,7 +154,7 @@ class RiteContext:
         self._tome_root = grimoire_root / "tome"
         self._manifest = load_manifest(self._tome_root)
         self._dirty = False
-        self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | DocOp] = []
+        self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | PatchOp | DocOp] = []
 
     @classmethod
     def from_args(cls) -> "RiteContext":
@@ -187,9 +200,9 @@ class RiteContext:
             return False
         return _hash_file(dest) != self._manifest[key]
 
-    def _update_manifest(self, filename: str) -> None:
+    def _update_manifest(self, filename: str, digest: str | None = None) -> None:
         key = self._manifest_key(filename)
-        self._manifest[key] = _hash_file(self.tome_dir / filename)
+        self._manifest[key] = digest or _hash_file(self.tome_dir / filename)
         self._dirty = True
 
     def _save_if_dirty(self) -> None:
@@ -210,6 +223,16 @@ class RiteContext:
     def hook(self, name: str, fn: Callable) -> None:
         self._ops.append(HookOp(name, fn))
 
+    def patch(self, filename: str, target: str) -> None:
+        """Own the keys of JSON fragment `filename` inside the live file `target`.
+
+        Cast merges the fragment into the target and prunes keys the fragment
+        used to own. Accept pulls the owned keys back into the fragment.
+        Drift is judged on the owned keys only; the rest of the file is free
+        to change.
+        """
+        self._ops.append(PatchOp(filename, target))
+
     def doc(self, page: DocPage | Callable) -> None:
         """Register a cheatsheet page for this tool.
 
@@ -229,7 +252,7 @@ class RiteContext:
             if isinstance(op, CopyOp):
                 for f in op.files:
                     keys.add(self._manifest_key(f))
-            elif isinstance(op, WriteOp):
+            elif isinstance(op, (WriteOp, PatchOp)):
                 keys.add(self._manifest_key(op.filename))
         return keys
 
@@ -270,6 +293,11 @@ class RiteContext:
             elif isinstance(op, HookOp):
                 if not self.accepting:
                     self._exec_hook(op.name, op.fn, dry_run=dry_run)
+            elif isinstance(op, PatchOp):
+                if self.accepting:
+                    self._exec_patch_accept(op.filename, op.target, dry_run=dry_run)
+                else:
+                    self._exec_patch(op.filename, op.target, dry_run=dry_run)
         self._save_if_dirty()
 
     def _exec_copy(self, *files: str, dry_run: bool = False) -> None:
@@ -351,3 +379,99 @@ class RiteContext:
             print(f"  [dry-run] hook: {name}")
             return
         fn()
+
+    # --- patch(): key-level ownership inside a live JSON file ---
+
+    def _owned_paths(self, filename: str) -> list[patch_mod.KeyPath]:
+        """Paths grimoire applied on the last cast — the tome fragment.
+
+        Drift and accept judge against what was *applied*, not what the
+        source declares now: a key added to the source but not yet cast
+        must not read as external modification of the target.
+        """
+        tome_file = self.tome_dir / filename
+        if tome_file.exists():
+            return patch_mod.leaves(patch_mod.load(tome_file))
+        return []
+
+    def _live_fragment(self, filename: str, doc: dict) -> dict:
+        return patch_mod.extract(doc, self._owned_paths(filename))[0]
+
+    def _patch_externally_modified(self, filename: str, doc: dict) -> bool:
+        key = self._manifest_key(filename)
+        if key not in self._manifest or not (self.tome_dir / filename).exists():
+            return False
+        live = patch_mod.canonical(self._live_fragment(filename, doc))
+        return hashlib.sha256(live).hexdigest() != self._manifest[key]
+
+    def _exec_patch(self, filename: str, target: str, dry_run: bool = False) -> None:
+        source = self.rite_dir / filename
+        dest = Path(target).expanduser()
+        tome_file = self.tome_dir / filename
+        if dry_run:
+            print(f"  [dry-run] patch {self.tool}/{filename} -> {dest}")
+            return
+        try:
+            fragment = patch_mod.load(source)
+            doc = patch_mod.load(dest) if dest.exists() else {}
+        except ValueError as e:
+            print(f"  ERROR {self.tool}/{filename}: {e} — skipping")
+            return
+        if dest.exists() and not self.force and self._patch_externally_modified(filename, doc):
+            print(f"  SKIPPED {dest} — owned keys externally modified (use --force to overwrite)")
+            return
+        new_paths = patch_mod.leaves(fragment)
+        stale = [p for p in self._owned_paths(filename) if p not in new_paths]
+        doc = patch_mod.merge(patch_mod.prune(doc, stale), fragment)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        patch_mod.dump(dest, doc)
+        self.tome_dir.mkdir(parents=True, exist_ok=True)
+        tome_file.write_bytes(patch_mod.canonical(fragment))
+        self._update_manifest(filename)
+        pruned = f", pruned {len(stale)}" if stale else ""
+        print(f"  patched {dest} ({len(new_paths)} keys{pruned})")
+
+    def _exec_patch_accept(self, filename: str, target: str, dry_run: bool = False) -> None:
+        source = self.rite_dir / filename
+        dest = Path(target).expanduser()
+        if not dest.exists():
+            print(f"  {self.tool}/{filename}: target {dest} missing — skipping")
+            return
+        if not source.exists():
+            print(f"  {self.tool}/{filename}: no matching source — needs manual reconciliation")
+            return
+        try:
+            doc = patch_mod.load(dest)
+            fragment = patch_mod.load(source)
+        except ValueError as e:
+            print(f"  ERROR {self.tool}/{filename}: {e} — skipping")
+            return
+        if not self._patch_externally_modified(filename, doc):
+            print(f"  {self.tool}/{filename}: not modified — skipping")
+            return
+        if dry_run:
+            print(f"  [dry-run] accept {dest} -> rites/{self.tool}/{filename}")
+            return
+        live, missing = patch_mod.extract(doc, self._owned_paths(filename))
+        for path in missing:
+            print(f"  WARNING {self.tool}/{filename}: {'.'.join(path)} missing from target — keeping source value")
+        merged = patch_mod.merge(fragment, live)
+        # Scan before touching the source, on the bytes we'd write.
+        staging = self.tome_dir / f".{filename}.accept"
+        staging.write_bytes(patch_mod.canonical(merged))
+        try:
+            if secrets := _scan_for_secrets(staging):
+                print(f"  ERROR {self.tool}/{filename}: potential secrets detected — refusing to accept")
+                for s in secrets:
+                    print(f"    line {s['line_number']}: {s['type']}")
+                sys.exit(1)
+        finally:
+            staging.unlink(missing_ok=True)
+        patch_mod.dump(source, merged)
+        # The tome fragment remembers the owned paths; the manifest records
+        # what the target actually holds, so a kept-but-missing key reads as
+        # a pending cast rather than as drift.
+        (self.tome_dir / filename).write_bytes(patch_mod.canonical(merged))
+        live_digest = hashlib.sha256(patch_mod.canonical(live)).hexdigest()
+        self._update_manifest(filename, live_digest)
+        print(f"  accepted {self.tool}/{filename}")

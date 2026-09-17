@@ -12,12 +12,14 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from arcana.tome import CopyOp, RiteContext, WriteOp
+from arcana import patch as patch_mod
+from arcana.tome import CopyOp, PatchOp, RiteContext, WriteOp
 
 
 class Kind(str, Enum):
     COPY = "copy"
     WRITE = "write"
+    PATCH = "patch"
 
 
 class Direction(str, Enum):
@@ -49,6 +51,11 @@ class FilePlan:
     rite_source: Path | None       # None for write()
     tome_path: Path
     planned_content: bytes | None  # None if write() and --build not set
+    # patch(): the owned keys extracted from the live target, canonicalized.
+    # Stands in for the tome file in every comparison — the tome copy only
+    # remembers which keys were applied. None means the target is missing
+    # or unreadable.
+    live_content: bytes | None = None
 
     @property
     def manifest_key(self) -> str:
@@ -113,14 +120,51 @@ def plan_rite(ctx: RiteContext, build: bool) -> list[FilePlan]:
                 tome_path=ctx.tome_dir / op.filename,
                 planned_content=content_bytes,
             ))
+        elif isinstance(op, PatchOp):
+            src = ctx.rite_dir / op.filename
+            plans.append(FilePlan(
+                tool=ctx.tool,
+                filename=op.filename,
+                kind=Kind.PATCH,
+                rite_source=src,
+                tome_path=ctx.tome_dir / op.filename,
+                planned_content=_source_bytes(src, Kind.PATCH),
+                live_content=_live_patch_content(ctx, op),
+            ))
         # LinkOp and HookOp have no file-level diff semantics.
     return plans
+
+
+def _source_bytes(src: Path | None, kind: Kind) -> bytes | None:
+    """Rite-source bytes in the form the tome side is compared in."""
+    if src is None or not src.exists():
+        return None
+    if kind == Kind.PATCH:
+        try:
+            return patch_mod.canonical(patch_mod.load(src))
+        except ValueError:
+            return None
+    return src.read_bytes()
+
+
+def _live_patch_content(ctx: RiteContext, op: PatchOp) -> bytes | None:
+    target = Path(op.target).expanduser()
+    if not target.exists():
+        return None
+    try:
+        doc = patch_mod.load(target)
+    except ValueError:
+        return None
+    return patch_mod.canonical(ctx._live_fragment(op.filename, doc))
 
 
 # --- Diff computation ---
 
 def compute_diff(plan: FilePlan, manifest: dict[str, str], build: bool) -> DiffResult:
-    tome_content = plan.tome_path.read_bytes() if plan.tome_path.exists() else None
+    if plan.kind == Kind.PATCH:
+        tome_content = plan.live_content
+    else:
+        tome_content = plan.tome_path.read_bytes() if plan.tome_path.exists() else None
     manifest_hash = manifest.get(plan.manifest_key)
 
     # A: drift (tome vs. manifest)
@@ -154,7 +198,7 @@ def compute_diff(plan: FilePlan, manifest: dict[str, str], build: bool) -> DiffR
     elif plan.rite_source is None or not plan.rite_source.exists():
         accept = Status.DELETED
     else:
-        source = plan.rite_source.read_bytes()
+        source = _source_bytes(plan.rite_source, plan.kind)
         accept = Status.CLEAN if source == tome_content else Status.MODIFIED
 
     return DiffResult(
@@ -188,6 +232,22 @@ _REASONS = {
 }
 
 
+# patch() compares the owned keys of the live target, not a tome file.
+_PATCH_REASONS = {
+    (Direction.DRIFT, Status.MODIFIED): "owned keys in target changed since last cast",
+    (Direction.DRIFT, Status.DELETED): "target missing — was last-patched",
+    (Direction.CAST, Status.MODIFIED): "fragment differs from owned keys in target",
+    (Direction.CAST, Status.ADDED): "target would be created on next cast",
+    (Direction.ACCEPT, Status.MODIFIED): "owned keys in target differ from fragment",
+}
+
+
+def _reason(kind: Kind, direction: Direction, status: Status) -> str:
+    if kind == Kind.PATCH and (direction, status) in _PATCH_REASONS:
+        return _PATCH_REASONS[(direction, status)]
+    return _REASONS.get((direction, status), "")
+
+
 def format_summary(results: list[DiffResult], selected: set[Direction]) -> str:
     shown = [r for r in results if not r.is_clean_in(selected)]
     lines: list[str] = []
@@ -202,7 +262,7 @@ def format_summary(results: list[DiffResult], selected: set[Direction]) -> str:
             if direction not in selected:
                 continue
             status = r.status(direction)
-            reason = _REASONS.get((direction, status), "")
+            reason = _reason(r.plan.kind, direction, status)
             lines.append(f"  {direction.value:<8} {status.value}   {reason}")
         if r.has_conflict and conflicts_meaningful:
             lines.append("  ⚠ potential conflict: live edits + pending cast changes")
@@ -232,7 +292,7 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
 
         drift = r.status(Direction.DRIFT)
         if Direction.DRIFT in selected and drift != Status.CLEAN:
-            parts.append(f"\n--- drift: {_REASONS[(Direction.DRIFT, drift)]}")
+            parts.append(f"\n--- drift: {_reason(r.plan.kind, Direction.DRIFT, drift)}")
             if r.manifest_hash:
                 parts.append(f"  last-built hash: {r.manifest_hash[:16]}…")
             if r.tome_content is not None:
@@ -242,7 +302,7 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
 
         cast = r.status(Direction.CAST)
         if Direction.CAST in selected and cast in CHANGED:
-            parts.append(f"\n--- cast: {_REASONS[(Direction.CAST, cast)]}")
+            parts.append(f"\n--- cast: {_reason(r.plan.kind, Direction.CAST, cast)}")
             parts.append(_unified_diff(
                 r.tome_content,
                 r.plan.planned_content,
@@ -250,16 +310,12 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
                 f"rebuilt {r.plan.tool}/{r.plan.filename}",
             ))
         elif Direction.CAST in selected and cast == Status.UNEVALUATED:
-            parts.append(f"\n--- cast: {_REASONS[(Direction.CAST, cast)]}")
+            parts.append(f"\n--- cast: {_reason(r.plan.kind, Direction.CAST, cast)}")
 
         accept = r.status(Direction.ACCEPT)
         if Direction.ACCEPT in selected and accept in CHANGED:
-            parts.append(f"\n--- accept: {_REASONS[(Direction.ACCEPT, accept)]}")
-            source_bytes = (
-                r.plan.rite_source.read_bytes()
-                if r.plan.rite_source and r.plan.rite_source.exists()
-                else None
-            )
+            parts.append(f"\n--- accept: {_reason(r.plan.kind, Direction.ACCEPT, accept)}")
+            source_bytes = _source_bytes(r.plan.rite_source, r.plan.kind)
             parts.append(_unified_diff(
                 source_bytes,
                 r.tome_content,

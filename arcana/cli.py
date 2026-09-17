@@ -383,7 +383,7 @@ def inscribe(dry_run: bool) -> None:
                 shell_complete=_complete_tool_names)
 @click.option("--dry-run", is_flag=True, help="Show what would be accepted without copying.")
 def accept(tools: tuple[str, ...], dry_run: bool) -> None:
-    """Pull external changes back into rite sources (copy()-managed files only)."""
+    """Pull external changes back into rite sources (copy() files and patch() keys)."""
     click.echo(f"Accepting external changes ({GRIMOIRE_ROOT})\n")
     profile = _resolve_profile()
     click.echo()
