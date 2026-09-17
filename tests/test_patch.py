@@ -169,6 +169,42 @@ class RoundTrip(unittest.TestCase):
         out = self.run_ctx(accepting=True)
         self.assertIn("not modified", out)
 
+    def test_migrating_from_link_materializes_target_and_prunes_nothing(self):
+        # Yesterday's rite copied and linked the whole file.
+        old = {"theme": "light", "lastChangelogVersion": "0.85.1", "extra": 1}
+        self.source.write_text(json.dumps(old))
+        c = RiteContext("work", self.root, "tool")
+        c.copy("fragment.json")
+        c.link("fragment.json", str(self.target))
+        with redirect_stdout(io.StringIO()):
+            c.execute()
+        self.assertTrue(self.target.is_symlink())
+
+        # Today's rite owns only the theme.
+        self.write_source({"theme": "dark"})
+        out = self.run_ctx()
+        self.assertIn("materialized", out)
+        self.assertFalse(self.target.is_symlink())
+        self.assertEqual(
+            self.read_target(),
+            {"theme": "dark", "lastChangelogVersion": "0.85.1", "extra": 1},
+        )
+        self.assertNotIn("pruned", out)
+        self.assertEqual(
+            json.loads((self.root / "tome/tool/fragment.json").read_text()),
+            {"theme": "dark"},
+        )
+
+    def test_symlink_to_elsewhere_is_refused(self):
+        self.write_source({"theme": "dark"})
+        other = Path(self.tmp.name, "elsewhere.json")
+        other.write_text("{}")
+        self.target.symlink_to(other)
+        out = self.run_ctx()
+        self.assertIn("ERROR", out)
+        self.assertTrue(self.target.is_symlink())
+        self.assertEqual(other.read_text(), "{}")
+
     def test_invalid_target_is_reported_not_clobbered(self):
         self.write_source({"tui": "full"})
         self.target.write_text("{broken")

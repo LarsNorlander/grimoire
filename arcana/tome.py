@@ -432,6 +432,20 @@ class RiteContext:
         if dry_run:
             print(f"  [dry-run] patch {self.tool}/{filename} -> {dest}")
             return
+        if dest.is_symlink():
+            if dest.resolve() != tome_file.resolve():
+                print(
+                    f"  ERROR {dest} is a symlink elsewhere — not patching through it"
+                )
+                return
+            # The rite used to copy()+link() this file. Make the target a real
+            # file with its current content, and forget the old tome copy so
+            # this cast owns only the fragment's keys from here on.
+            content = dest.read_text()
+            dest.unlink()
+            dest.write_text(content)
+            tome_file.unlink(missing_ok=True)
+            print(f"  materialized {dest} (was a link into tome)")
         try:
             fragment = patch_mod.load(source)
             doc = patch_mod.load(dest) if dest.exists() else {}
