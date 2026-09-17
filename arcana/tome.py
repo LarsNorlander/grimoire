@@ -13,8 +13,7 @@ from detect_secrets.settings import default_settings
 
 from arcana import patch as patch_mod
 from arcana.docs import DocPage
-
-MANIFEST_FILENAME = ".manifest"
+from arcana.manifest import Manifest
 
 _PROFILE_DIRECTIVE_RE = re.compile(r'#\s*profile:\s*(.+?)\s*$', re.IGNORECASE)
 
@@ -68,25 +67,6 @@ def _scan_for_secrets(path: Path) -> list[dict]:
         for secret in secret_set:
             found.append({"type": secret.type, "line_number": secret.line_number})
     return found
-
-
-def load_manifest(tome_root: Path) -> dict[str, str]:
-    manifest_path = tome_root / MANIFEST_FILENAME
-    if not manifest_path.exists():
-        return {}
-    entries = {}
-    for line in manifest_path.read_text().splitlines():
-        if "=" in line:
-            key, value = line.split("=", 1)
-            entries[key] = value
-    return entries
-
-
-def save_manifest(tome_root: Path, entries: dict[str, str]) -> None:
-    manifest_path = tome_root / MANIFEST_FILENAME
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [f"{key}={value}" for key, value in sorted(entries.items())]
-    manifest_path.write_text("\n".join(lines) + "\n")
 
 
 @dataclass
@@ -152,7 +132,7 @@ class RiteContext:
         self.rite_dir = grimoire_root / "rites" / tool
         self.tome_dir = grimoire_root / "tome" / tool
         self._tome_root = grimoire_root / "tome"
-        self._manifest = load_manifest(self._tome_root)
+        self._manifest = Manifest.load(self._tome_root)
         self._dirty = False
         self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | PatchOp | DocOp] = []
 
@@ -195,19 +175,36 @@ class RiteContext:
         dest = self.tome_dir / filename
         if not dest.exists():
             return False
-        key = self._manifest_key(filename)
-        if key not in self._manifest:
-            return False
-        return _hash_file(dest) != self._manifest[key]
+        baseline = self._manifest.hash(self._manifest_key(filename))
+        return baseline is not None and _hash_file(dest) != baseline
 
-    def _update_manifest(self, filename: str, digest: str | None = None) -> None:
+    def _update_manifest(self, filename: str, kind: str, digest: str | None = None) -> None:
         key = self._manifest_key(filename)
-        self._manifest[key] = digest or _hash_file(self.tome_dir / filename)
+        self._manifest.record(key, digest or _hash_file(self.tome_dir / filename), kind)
         self._dirty = True
+
+    def _record_links(self) -> None:
+        """Write this pass's link destinations into the manifest.
+
+        The list is replaced, not appended, so a rite that stops linking a
+        file leaves no stale destination behind for GC to act on.
+        """
+        by_file: dict[str, list[str]] = {}
+        for op in self._ops:
+            if isinstance(op, LinkOp):
+                by_file.setdefault(op.filename, []).append(str(Path(op.target).expanduser()))
+        for key in self.registered_keys():
+            entry = self._manifest.get(key)
+            if entry is None:
+                continue
+            links = sorted(set(by_file.get(key.split("/", 1)[1], [])))
+            if entry.links != links:
+                self._manifest.set_links(key, links)
+                self._dirty = True
 
     def _save_if_dirty(self) -> None:
         if self._dirty:
-            save_manifest(self._tome_root, self._manifest)
+            self._manifest.save()
 
     # --- Public API: operation builders ---
 
@@ -298,6 +295,8 @@ class RiteContext:
                     self._exec_patch_accept(op.filename, op.target, dry_run=dry_run)
                 else:
                     self._exec_patch(op.filename, op.target, dry_run=dry_run)
+        if not self.accepting and not dry_run:
+            self._record_links()
         self._save_if_dirty()
 
     def _exec_copy(self, *files: str, dry_run: bool = False) -> None:
@@ -311,7 +310,7 @@ class RiteContext:
                 print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
                 continue
             shutil.copy2(self.rite_dir / filename, self.tome_dir / filename)
-            self._update_manifest(filename)
+            self._update_manifest(filename, "copy")
             print(f"  built tome/{self.tool}/{filename}")
 
     def _exec_write(self, filename: str, content: str | Callable, dry_run: bool = False) -> None:
@@ -328,7 +327,7 @@ class RiteContext:
             print(f"  SKIPPED tome/{self.tool}/{filename} — externally modified (use --force to overwrite)")
             return
         (self.tome_dir / filename).write_text(content)
-        self._update_manifest(filename)
+        self._update_manifest(filename, "write")
         print(f"  built tome/{self.tool}/{filename}")
 
     def _exec_accept(self, *files: str, dry_run: bool = False) -> None:
@@ -350,7 +349,7 @@ class RiteContext:
                     print(f"    line {s['line_number']}: {s['type']}")
                 sys.exit(1)
             shutil.copy2(tome_file, rite_file)
-            self._update_manifest(filename)
+            self._update_manifest(filename, "copy")
             print(f"  accepted {self.tool}/{filename}")
 
     def _exec_link(self, filename: str, target: str, dry_run: bool = False) -> None:
@@ -398,11 +397,11 @@ class RiteContext:
         return patch_mod.extract(doc, self._owned_paths(filename))[0]
 
     def _patch_externally_modified(self, filename: str, doc: dict) -> bool:
-        key = self._manifest_key(filename)
-        if key not in self._manifest or not (self.tome_dir / filename).exists():
+        baseline = self._manifest.hash(self._manifest_key(filename))
+        if baseline is None or not (self.tome_dir / filename).exists():
             return False
         live = patch_mod.canonical(self._live_fragment(filename, doc))
-        return hashlib.sha256(live).hexdigest() != self._manifest[key]
+        return hashlib.sha256(live).hexdigest() != baseline
 
     def _exec_patch(self, filename: str, target: str, dry_run: bool = False) -> None:
         source = self.rite_dir / filename
@@ -427,7 +426,8 @@ class RiteContext:
         patch_mod.dump(dest, doc)
         self.tome_dir.mkdir(parents=True, exist_ok=True)
         tome_file.write_bytes(patch_mod.canonical(fragment))
-        self._update_manifest(filename)
+        self._update_manifest(filename, "patch")
+        self._manifest.set_target(self._manifest_key(filename), str(dest))
         pruned = f", pruned {len(stale)}" if stale else ""
         print(f"  patched {dest} ({len(new_paths)} keys{pruned})")
 
@@ -473,5 +473,6 @@ class RiteContext:
         # a pending cast rather than as drift.
         (self.tome_dir / filename).write_bytes(patch_mod.canonical(merged))
         live_digest = hashlib.sha256(patch_mod.canonical(live)).hexdigest()
-        self._update_manifest(filename, live_digest)
+        self._update_manifest(filename, "patch", live_digest)
+        self._manifest.set_target(self._manifest_key(filename), str(dest))
         print(f"  accepted {self.tool}/{filename}")

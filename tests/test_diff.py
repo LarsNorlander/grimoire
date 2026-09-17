@@ -16,6 +16,7 @@ from pathlib import Path
 from arcana import diff
 from arcana import patch
 from arcana.diff import Direction as D, Status as S
+from arcana.manifest import Entry, Manifest
 from arcana.tome import RiteContext
 
 
@@ -44,6 +45,10 @@ class Matrix(unittest.TestCase):
         (p,) = diff.plan_rite(ctx, build=build)
         return p
 
+    def manifest(self, entries: dict) -> Manifest:
+        return Manifest(self.root / "tome" / ".manifest",
+                        {k: Entry(hash=v) for k, v in entries.items()})
+
     def check(self, result: diff.DiffResult, drift, cast, accept, conflict=False):
         self.assertEqual(result.statuses, {D.DRIFT: drift, D.CAST: cast, D.ACCEPT: accept})
         self.assertIs(result.has_conflict, conflict)
@@ -55,7 +60,7 @@ class Matrix(unittest.TestCase):
             (self.rite_dir / "a").write_bytes(source)
         if tome is not None:
             (self.tome_dir / "a").write_bytes(tome)
-        manifest = {"t/a": self.sha(manifest_of)} if manifest_of is not None else {}
+        manifest = self.manifest({"t/a": self.sha(manifest_of)} if manifest_of is not None else {})
         return diff.compute_diff(self.plan(lambda c: c.copy("a")), manifest, build=False)
 
     def test_copy_clean(self):
@@ -91,7 +96,7 @@ class Matrix(unittest.TestCase):
     def write_case(self, *, content, tome, manifest_of, build):
         if tome is not None:
             (self.tome_dir / "g").write_bytes(tome)
-        manifest = {"t/g": self.sha(manifest_of)} if manifest_of is not None else {}
+        manifest = self.manifest({"t/g": self.sha(manifest_of)} if manifest_of is not None else {})
         plan = self.plan(lambda c: c.write("g", lambda **_: content), build=build)
         return diff.compute_diff(plan, manifest, build=build)
 
@@ -119,7 +124,8 @@ class Matrix(unittest.TestCase):
             (self.tome_dir / "f.json").write_bytes(patch.canonical(applied))
         if live is not None:
             self.target.write_text(json.dumps(live))
-        manifest = {"t/f.json": self.sha(patch.canonical(manifest_of))} if manifest_of is not None else {}
+        manifest = self.manifest(
+            {"t/f.json": self.sha(patch.canonical(manifest_of))} if manifest_of is not None else {})
         plan = self.plan(lambda c: c.patch("f.json", str(self.target)))
         return diff.compute_diff(plan, manifest, build=False)
 

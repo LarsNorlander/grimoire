@@ -13,6 +13,7 @@ from enum import Enum
 from pathlib import Path
 
 from arcana import patch as patch_mod
+from arcana.manifest import Manifest
 from arcana.tome import CopyOp, PatchOp, RiteContext, WriteOp
 
 
@@ -164,12 +165,12 @@ def _live_patch_content(ctx: RiteContext, op: PatchOp) -> bytes | None:
 
 # --- Diff computation ---
 
-def compute_diff(plan: FilePlan, manifest: dict[str, str], build: bool) -> DiffResult:
+def compute_diff(plan: FilePlan, manifest: Manifest, build: bool) -> DiffResult:
     if plan.kind == Kind.PATCH:
         tome_content = plan.live_content
     else:
         tome_content = plan.tome_path.read_bytes() if plan.tome_path.exists() else None
-    manifest_hash = manifest.get(plan.manifest_key)
+    manifest_hash = manifest.hash(plan.manifest_key)
 
     # A: drift (tome vs. manifest)
     if tome_content is None:

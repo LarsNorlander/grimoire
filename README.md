@@ -47,7 +47,7 @@ A rite is an executable script that registers operations with `RiteContext`:
 - `hook()` performs necessary imperative setup.
 - `doc()` registers cheatsheet data for `grimoire scribe`.
 
-`tome/.manifest` records hashes of built files. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation. For `patch()` files, drift and accept look only at the owned keys; the rest of the file is free to change.
+`tome/.manifest` records each built file's hash, the operation that produced it, and the symlinks pointing at it, so a full `cast` can prune files a rite stopped managing along with their links. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation. For `patch()` files, drift and accept look only at the owned keys; the rest of the file is free to change.
 
 Profile-specific rites use a header directive:
 

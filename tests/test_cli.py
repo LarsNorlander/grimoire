@@ -7,6 +7,7 @@ touches ~/.grimoire or the machine's profile.
 Run with: uv run python -m unittest
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -55,10 +56,7 @@ class Harness(unittest.TestCase):
         )
 
     def manifest(self) -> dict:
-        return dict(
-            line.split("=", 1)
-            for line in (self.root / "tome" / ".manifest").read_text().splitlines()
-        )
+        return json.loads((self.root / "tome" / ".manifest").read_text())["files"]
 
 
 class Verbs(Harness):
@@ -69,7 +67,9 @@ class Verbs(Harness):
         self.assertEqual((self.root / "tome" / "tool" / "config").read_text(), "setting = 1\n")
         self.assertTrue(self.target.is_symlink())
         self.assertEqual(self.target.resolve(), (self.root / "tome" / "tool" / "config").resolve())
-        self.assertIn("tool/config", self.manifest())
+        entry = self.manifest()["tool/config"]
+        self.assertEqual(entry["kind"], "copy")
+        self.assertEqual(entry["links"], [str(self.target)])
 
     def test_diff_exit_code_tracks_drift(self):
         self.grimoire("cast")
@@ -114,6 +114,8 @@ class Verbs(Harness):
         self.assertIn("Pruning stale manifest entries", r.stdout)
         self.assertNotIn("tool/config", self.manifest())
         self.assertFalse((self.root / "tome" / "tool").exists())
+        self.assertFalse(self.target.is_symlink(), "recorded link should be removed with the file")
+        self.assertNotIn("may now be dangling", r.stdout)
 
     def test_profile_gate_skips_rite(self):
         rite = self.root / "rites" / "tool" / "rite"

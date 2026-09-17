@@ -10,7 +10,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from arcana import rites
-from arcana.tome import RiteSkipped, load_manifest, save_manifest
+from arcana.manifest import Entry, Manifest
+from arcana.tome import RiteSkipped
 
 RITE = """#!/usr/bin/env python3
 {directive}from arcana.tome import RiteContext
@@ -45,6 +46,16 @@ class Root(unittest.TestCase):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("built\n")
         return p
+
+    def manifest(self, **entries) -> Manifest:
+        """Write a manifest from {key: Entry} or {key: hash} and return it."""
+        m = Manifest(self.root / "tome" / ".manifest",
+                     {k: (v if isinstance(v, Entry) else Entry(hash=v)) for k, v in entries.items()})
+        m.save()
+        return m
+
+    def keys(self) -> set[str]:
+        return set(Manifest.load(self.root / "tome").keys())
 
 
 class Discovery(Root):
@@ -89,19 +100,19 @@ class ManifestGC(Root):
     def test_prunes_file_a_rite_stopped_managing(self):
         self.add_rite("t", "x")
         kept, dropped = self.tome("t/x"), self.tome("t/old")
-        save_manifest(self.root / "tome", {"t/x": "h", "t/old": "h"})
+        self.manifest(**{"t/x": "h", "t/old": "h"})
         out = self.gc(touched={"t/x"}, built={"t"})
         self.assertIn("t/old", out)
-        self.assertEqual(set(load_manifest(self.root / "tome")), {"t/x"})
+        self.assertEqual(self.keys(), {"t/x"})
         self.assertTrue(kept.exists())
         self.assertFalse(dropped.exists())
 
     def test_prunes_removed_tool_and_flags_dangling_links(self):
         self.add_rite("keep", "x")
         self.tome("keep/x"); self.tome("gone/x")
-        save_manifest(self.root / "tome", {"keep/x": "h", "gone/x": "h"})
+        self.manifest(**{"keep/x": "h", "gone/x": "h"})  # legacy-style: no links known
         out = self.gc(touched={"keep/x"}, built={"keep"})
-        self.assertEqual(set(load_manifest(self.root / "tome")), {"keep/x"})
+        self.assertEqual(self.keys(), {"keep/x"})
         self.assertFalse((self.root / "tome" / "gone").exists())
         self.assertIn("gone", out)
         self.assertIn("dangling", out)
@@ -110,10 +121,34 @@ class ManifestGC(Root):
         self.add_rite("skipped", "x", profile="personal")
         self.add_rite("ran", "x")
         self.tome("skipped/x"); self.tome("ran/x")
-        save_manifest(self.root / "tome", {"skipped/x": "h", "ran/x": "h"})
+        self.manifest(**{"skipped/x": "h", "ran/x": "h"})
         out = self.gc(touched={"ran/x"}, built={"ran"})
         self.assertEqual(out, "")
-        self.assertEqual(set(load_manifest(self.root / "tome")), {"skipped/x", "ran/x"})
+        self.assertEqual(self.keys(), {"skipped/x", "ran/x"})
+
+    def test_removes_recorded_links_that_still_point_at_the_file(self):
+        self.add_rite("keep", "x")
+        gone = self.tome("gone/x")
+        home = self.root / "home"; home.mkdir()
+        ours, theirs = home / "ours", home / "theirs"
+        ours.symlink_to(gone)
+        theirs.symlink_to(home / "elsewhere")
+        self.manifest(**{"gone/x": Entry(hash="h", kind="copy", links=[str(ours), str(theirs)])})
+        out = self.gc(touched=set(), built={"keep"})
+        self.assertFalse(ours.is_symlink())
+        self.assertTrue(theirs.is_symlink(), "a repointed link is the user's")
+        self.assertIn(f"kept {theirs}", out)
+        self.assertNotIn("dangling", out)
+
+    def test_patch_target_is_left_in_place(self):
+        self.add_rite("keep", "x")
+        self.tome("gone/f.json")
+        target = self.root / "live.json"; target.write_text('{"tui": "full"}')
+        self.manifest(**{"gone/f.json": Entry(hash="h", kind="patch", target=str(target))})
+        out = self.gc(touched=set(), built={"keep"})
+        self.assertTrue(target.exists())
+        self.assertIn(f"left {target} in place", out)
+        self.assertNotIn("dangling", out)
 
 
 if __name__ == "__main__":

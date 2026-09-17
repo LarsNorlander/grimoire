@@ -12,13 +12,8 @@ import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
-from arcana.tome import (
-    RiteContext,
-    RiteSkipped,
-    load_manifest,
-    parse_rite_profiles,
-    save_manifest,
-)
+from arcana.manifest import Manifest
+from arcana.tome import RiteContext, RiteSkipped, parse_rite_profiles
 
 VALID_PROFILES = ("work", "personal")
 
@@ -153,13 +148,13 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
     skipped rites are preserved — their entries remain valid under the
     matching profile.
 
-    Symlinks in the user's home directory pointing at pruned tome files
-    are *not* cleaned automatically — grimoire doesn't track link targets
-    in the manifest, so it doesn't know where the rite put them. We print
-    a notice when pruning entries for tools that no longer have a rite.
+    Symlinks the manifest recorded for a pruned file are removed too, but
+    only while they still point at that tome file — a link the user has
+    since repointed is theirs. A patch() target is a file the machine owns,
+    so it is left in place and named in a note.
     """
     tome_root = root / "tome"
-    manifest = load_manifest(tome_root)
+    manifest = Manifest.load(tome_root)
     if not manifest:
         return
     extant_tools = {p.parent.name for p in discover(root)}
@@ -175,11 +170,18 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
 
     print("Pruning stale manifest entries:")
     affected_tools: set[str] = set()
+    untracked_links: list[str] = []
     for key in sorted(stale):
         tool, filename = key.split("/", 1)
         tome_file = tome_root / tool / filename
         print(f"  - {key}")
-        del manifest[key]
+        entry = manifest.remove(key)
+        for link in entry.links:
+            _remove_link(Path(link), tome_file)
+        if entry.target:
+            print(f"    left {entry.target} in place — its keys are the machine's now")
+        if entry.kind is None and not entry.links:  # pre-v2 entry: links unknown
+            untracked_links.append(tool)
         try:
             if tome_file.is_symlink() or tome_file.exists():
                 tome_file.unlink()
@@ -197,8 +199,9 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
             except OSError:
                 pass
 
-    # Flag possible dangling symlinks for fully-removed tools.
-    gone = sorted(t for t in affected_tools if t not in extant_tools)
+    # Entries migrated from the pre-v2 manifest carry no link list, so a
+    # link they created can't be found — say so rather than stay silent.
+    gone = sorted(t for t in set(untracked_links) if t not in extant_tools)
     if gone:
         print(
             f"  note: symlinks previously created by "
@@ -206,4 +209,18 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
             f"remove manually if no longer needed."
         )
 
-    save_manifest(tome_root, manifest)
+    manifest.save()
+
+
+def _remove_link(link: Path, tome_file: Path) -> None:
+    """Remove a symlink grimoire created, if it is still ours."""
+    if not link.is_symlink():
+        return
+    if link.readlink() != tome_file:
+        print(f"    kept {link} — no longer points at the tome file")
+        return
+    try:
+        link.unlink()
+        print(f"    removed {link}")
+    except OSError as e:
+        print(f"    (could not remove {link}: {e})", file=sys.stderr)

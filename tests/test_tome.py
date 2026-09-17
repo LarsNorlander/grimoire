@@ -12,7 +12,8 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from arcana.tome import RiteContext, load_manifest
+from arcana.manifest import Manifest
+from arcana.tome import RiteContext
 
 
 class Root(unittest.TestCase):
@@ -43,8 +44,8 @@ class Root(unittest.TestCase):
             ctx.execute(dry_run=dry_run)
         return buf.getvalue()
 
-    def manifest(self) -> dict:
-        return load_manifest(self.root / "tome")
+    def manifest(self) -> Manifest:
+        return Manifest.load(self.root / "tome")
 
 
 class Copy(Root):
@@ -70,7 +71,7 @@ class Copy(Root):
         out = self.run_ctx(lambda c: c.copy("a"), dry_run=True)
         self.assertIn("[dry-run] copy", out)
         self.assertFalse(self.tome("a").exists())
-        self.assertEqual(self.manifest(), {})
+        self.assertEqual(len(self.manifest()), 0)
 
 
 class Write(Root):
@@ -112,8 +113,15 @@ class Link(Root):
         dest = self.home / ".config" / "a"
         self.assertIn("created", out)
         self.assertEqual(dest.readlink(), self.tome("a"))
+        self.assertEqual(self.manifest().get("t/a").links, [str(dest)])
         out = self.run_ctx(self.register)
         self.assertNotIn(str(dest), out)
+
+    def test_link_list_is_replaced_each_cast(self):
+        self.source("a", "x\n")
+        self.run_ctx(self.register)
+        self.run_ctx(lambda c: c.copy("a"))  # same file, no link registered this pass
+        self.assertEqual(self.manifest().get("t/a").links, [])
 
     def test_repoints_a_stale_symlink(self):
         self.source("a", "x\n")

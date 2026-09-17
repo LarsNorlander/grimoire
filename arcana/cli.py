@@ -13,7 +13,8 @@ from arcana import diff as diff_mod
 from arcana import docs as docs_mod
 from arcana import rites as rites_mod
 from arcana.rites import VALID_PROFILES, RiteNotFound
-from arcana.tome import RiteSkipped, load_manifest
+from arcana.manifest import Manifest
+from arcana.tome import RiteSkipped
 
 sys.dont_write_bytecode = True  # rite scripts are extension-less; no point caching
 
@@ -434,7 +435,7 @@ def diff(cli_ctx: click.Context, tool: str | None,
         click.echo(f"ERROR: {e}", err=True)
         cli_ctx.exit(2)
 
-    manifest = load_manifest(GRIMOIRE_ROOT / "tome")
+    manifest = Manifest.load(GRIMOIRE_ROOT / "tome")
     results = []
     errors: list[tuple[str, Exception]] = []
     for rite_path in rite_paths:

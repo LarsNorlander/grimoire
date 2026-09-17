@@ -11,7 +11,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from arcana import patch
-from arcana.tome import RiteContext, load_manifest
+from arcana.manifest import Manifest
+from arcana.tome import RiteContext
 
 
 class Helpers(unittest.TestCase):
@@ -96,7 +97,8 @@ class RoundTrip(unittest.TestCase):
             self.read_target(),
             {"model": "opus", "perm": {"mode": "ask", "allow": ["a"]}, "tui": "full"},
         )
-        self.assertIn("tool/fragment.json", load_manifest(self.root / "tome"))
+        entry = Manifest.load(self.root / "tome").get("tool/fragment.json")
+        self.assertEqual((entry.kind, entry.target), ("patch", str(self.target)))
 
         self.target.unlink()
         self.run_ctx()
