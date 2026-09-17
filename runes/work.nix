@@ -8,7 +8,6 @@
       "awscli"
       "gitleaks"
       "mysql-client@8.4"
-      "tmux"
       "yarn"
       # Moved off pinned nixpkgs for a faster cadence.
       "gh"               # GitHub CLI; chases GitHub API changes
