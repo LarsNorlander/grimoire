@@ -41,3 +41,6 @@ def rite(ctx: RiteContext) -> None:
     ctx.hook("install ccstatusline", install_ccstatusline, unless=ccstatusline_ready)
     ctx.copy("settings.json")
     ctx.link("settings.json", "~/.config/ccstatusline/settings.json")
+    # Claude Code's settings.json differs per machine (see rites/claude); own
+    # only the statusLine entry that wires ccstatusline in.
+    ctx.patch("claude-settings.json", "~/.claude/settings.json")
