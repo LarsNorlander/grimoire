@@ -16,6 +16,10 @@
     nerd-fonts.jetbrains-mono
   ];
 
+  # nix-darwin's /etc/zprofile skips path_helper, so /etc/paths.d/homebrew
+  # is never read; put Homebrew's bins on the PATH it sets instead.
+  environment.systemPath = [ "/opt/homebrew/bin" "/opt/homebrew/sbin" ];
+
   # Homebrew — owns GUI apps and casks
   homebrew = {
     enable = true;
