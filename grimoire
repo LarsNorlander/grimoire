@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Grimoire — personal machine configuration manager.
-# Bash ensures nix and uv are available; Python CLI handles everything else.
+# Bash ensures nix, Homebrew, and uv are available; Python CLI handles
+# everything else.
 
 set -euo pipefail
 
@@ -31,7 +32,25 @@ if ! command -v nix &>/dev/null; then
     esac
 fi
 
-# 3. Create ~/.grimoire symlink (ensures Python CLI can always rely on it)
+# 3. Install Homebrew if missing. nix-darwin's homebrew module only drives an
+#    existing brew, so runes can't activate without it. Checked by path since
+#    PATH only gains /opt/homebrew/bin once runes are applied.
+if [ ! -x /opt/homebrew/bin/brew ]; then
+    echo "  Homebrew not found."
+    printf "  Install Homebrew? [y/N] "
+    read -r answer
+    case "$answer" in
+        [yY]*)
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            ;;
+        *)
+            echo "  Homebrew is required. Aborting." >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# 4. Create ~/.grimoire symlink (ensures Python CLI can always rely on it)
 link="$HOME/.grimoire"
 if [ "$grimoire_root" != "$link" ]; then
     if [ -L "$link" ] && [ "$(readlink "$link")" = "$grimoire_root" ]; then
@@ -48,7 +67,7 @@ if [ "$grimoire_root" != "$link" ]; then
     fi
 fi
 
-# 4. Hand off to Python. If uv isn't on PATH yet (truly first run),
+# 5. Hand off to Python. If uv isn't on PATH yet (truly first run),
 #    make it temporarily available via `nix shell` for this invocation.
 #    `grimoire bootstrap` will then install it system-wide via darwin-rebuild,
 #    so subsequent invocations find it directly without the nix-shell detour.

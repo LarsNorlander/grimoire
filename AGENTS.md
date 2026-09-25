@@ -10,7 +10,7 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 
 ## Architecture
 
-- `grimoire` is the thin bash wrapper: ensure Nix/uv/Python are available, then delegate.
+- `grimoire` is the thin bash wrapper: ensure Nix/Homebrew/uv/Python are available, then delegate.
 - `arcana/` owns CLI behavior and shared rite machinery.
 - `rites/<tool>/rite.py` is a module exposing `rite(ctx: RiteContext)`, which registers the tool's managed files; keep tool-specific logic in the rite, not the wrapper. To park a rite, rename the file.
 - `runes/` owns nix-darwin system configuration.

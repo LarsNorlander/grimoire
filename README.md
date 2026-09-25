@@ -13,7 +13,7 @@ git clone git@github.com:LarsNorlander/grimoire.git ~/.grimoire
 ~/.grimoire/grimoire bootstrap
 ```
 
-`bootstrap` prompts for a profile, applies runes, then applies rites. It is safe to re-run.
+The wrapper offers to install Nix and Homebrew if they are missing. `bootstrap` prompts for a profile, applies runes, then applies rites. It is safe to re-run.
 
 After bootstrap, use the narrower verbs for day-to-day work. Run `grimoire --help` and `grimoire <verb> --help` for the current flag reference.
 
