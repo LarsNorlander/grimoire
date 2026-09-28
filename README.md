@@ -59,6 +59,10 @@ Profile-specific rites use a header directive:
 
 Rites without a directive apply to every profile.
 
+## Containers
+
+The work profile runs Docker through [Lima](https://lima-vm.io/) rather than Docker Desktop. The `lima` rite manages the VM template at `~/.lima-templates/docker.yaml` and creates the rootful `docker` instance on first cast, which downloads an Ubuntu image and takes a few minutes. The `docker` rite creates a `lima-docker` context pointed at the VM's socket and owns the keys in `~/.docker/config.json` that select it and Homebrew's CLI plugins. A launch agent from the work rune starts the VM at login.
+
 ## Cheatsheets
 
 `grimoire scribe` writes schema-validated JSON for documented rites. Grimoire only produces data; rendering belongs to [homepage](https://github.com/LarsNorlander/homepage). By default, sheets are written to homepage's content directory; override with `--output` or `GRIMOIRE_SCRIBE_OUTPUT`.

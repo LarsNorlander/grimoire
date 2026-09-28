@@ -1,0 +1,36 @@
+# Docker host VM. Created by rites/lima with:
+#   limactl start --name docker ~/.lima-templates/docker.yaml
+# vmType and disk are fixed at creation; changing them means
+# `limactl delete docker` and a recast (images and volumes inside are lost).
+# cpus, memory and mounts can be changed with `limactl edit docker` and a
+# restart; the instance keeps its own copy, so editing this file alone
+# does not change an existing instance.
+minimumLimaVersion: 2.0.0
+
+# Rootful: behaves like Docker Desktop's daemon (privileged containers,
+# ports below 1024, overlay networks). Upstream's default `docker` is rootless.
+base:
+  - template:docker-rootful
+
+vmType: vz
+mountType: virtiofs
+
+cpus: 6
+memory: 8GiB
+disk: 100GiB
+
+# amd64 images at usable speed. Rosetta itself is installed by rites/lima.
+vmOpts:
+  vz:
+    rosetta:
+      enabled: true
+      binfmt: true
+
+# Only listed paths are visible to the VM: a `-v` outside them silently
+# yields an empty directory. This list replaces the upstream default (~
+# read-only) rather than merging with it. Work lives under ~/Workbench, and
+# rootful Docker inside the VM can write anything mounted here, so nothing
+# else from the home directory is exposed.
+mounts:
+  - location: "~/Workbench"
+    writable: true
