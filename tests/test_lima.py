@@ -57,6 +57,13 @@ class InstanceGuard(unittest.TestCase):
         self.assertIn("--tty=false", argv)
         self.assertEqual(argv[-1], str(Path(self.lima.TEMPLATE).expanduser()))
 
+    def test_create_drops_the_base_templates_home_mount(self):
+        with mock.patch.object(subprocess, "run") as run:
+            self.lima.create_instance()
+        argv = [str(a) for a in run.call_args.args[0]]
+        self.assertEqual(argv[argv.index("--set") + 1], self.lima.DROP_HOME_MOUNT)
+        self.assertIn('.location == "~"', self.lima.DROP_HOME_MOUNT)
+
 
 class RosettaGuard(unittest.TestCase):
     def test_follows_the_rosetta_runtime_marker(self):

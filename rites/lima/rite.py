@@ -37,6 +37,12 @@ def instance_ready() -> bool:
     return INSTANCE in result.stdout.split()
 
 
+# Lima merges a template's mounts with its base's by location, so the base's
+# read-only home mount would ride along with the template's Workbench mount.
+# `--set` runs after that merge and can delete it.
+DROP_HOME_MOUNT = 'del(.mounts[] | select(.location == "~"))'
+
+
 def create_instance():
     # First run downloads the Ubuntu image and provisions Docker: minutes,
     # not seconds. The instance is left running.
@@ -47,6 +53,8 @@ def create_instance():
             "--name",
             INSTANCE,
             "--tty=false",  # don't prompt to confirm the config
+            "--set",
+            DROP_HOME_MOUNT,
             Path(TEMPLATE).expanduser(),
         ],
         check=True,
