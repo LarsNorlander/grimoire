@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# vm-up: create or start a Lima instance from a template file.
+#
+#   vm-up ~/Workbench/vms/eversports.yaml
+#
+# The instance is named after the file. On first run it is created from the
+# template with the base template's home mount dropped: Lima merges `mounts`
+# by location, so a template's own entries would otherwise ride along with
+# `~` read-only from upstream. A `lima-<name>` docker context is created when
+# the instance forwards a Docker socket. Prints the vmnet address if the
+# instance has one, for /etc/hosts entries.
+set -euo pipefail
+
+template=${1:?usage: vm-up <template.yaml>}
+name=$(basename "${template%.yaml}")
+limactl=/opt/homebrew/bin/limactl
+
+if "$limactl" list -q | grep -qx "$name"; then
+  status=$("$limactl" list "$name" --format '{{.Status}}')
+  if [ "$status" = "Running" ]; then
+    echo "$name: already running"
+  else
+    "$limactl" start --tty=false "$name"
+  fi
+else
+  "$limactl" start --name "$name" --tty=false \
+    --set 'del(.mounts[] | select(.location == "~"))' "$template"
+fi
+
+sock=$("$limactl" list "$name" --format '{{.Dir}}/sock/docker.sock')
+if [ -S "$sock" ] && ! docker context inspect "lima-$name" >/dev/null 2>&1; then
+  docker context create "lima-$name" --docker "host=unix://$sock"
+fi
+
+ip=$("$limactl" shell "$name" -- ip -4 -o addr show lima0 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+[ -n "$ip" ] && echo "$name: vmnet address $ip"
