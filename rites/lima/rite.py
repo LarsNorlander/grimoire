@@ -1,8 +1,8 @@
 # profile: work
-"""Lima: the headless Linux VM runner, and the rootful Docker VM it hosts.
+"""Lima: the headless Linux VM runner, and the shared Docker VM it hosts.
 
 Docker Desktop is not used on the work profile. The `docker` instance runs
-upstream's rootful Docker template; rites/docker wires the host CLI to it.
+upstream's rootless Docker template; rites/docker wires the host CLI to it.
 """
 
 import subprocess

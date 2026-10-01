@@ -8,10 +8,12 @@
 # does not change an existing instance.
 minimumLimaVersion: 2.0.0
 
-# Rootful: behaves like Docker Desktop's daemon (privileged containers,
-# ports below 1024, overlay networks). Upstream's default `docker` is rootless.
+# Rootless (upstream's default): an escaped container is an unprivileged
+# user in the VM, not root. The cost is no published ports below 1024 and no
+# privileged containers, which ad-hoc use doesn't need; a project stack that
+# does gets its own rootful instance (cantrips/lima/vm-up).
 base:
-  - template:docker-rootful
+  - template:docker
 
 vmType: vz
 mountType: virtiofs
@@ -28,7 +30,7 @@ vmOpts:
       binfmt: true
 
 # Only listed paths are visible to the VM: a `-v` outside them silently
-# yields an empty directory. Work lives under ~/Workbench, and rootful Docker
+# yields an empty directory. Work lives under ~/Workbench, and Docker
 # inside the VM can write anything mounted here, so nothing else from the
 # home directory is exposed. Lima would merge the base's read-only ~ mount
 # into this list; rite.py deletes it with `--set` at creation.

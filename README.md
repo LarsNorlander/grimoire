@@ -61,7 +61,7 @@ Rites without a directive apply to every profile.
 
 ## Containers
 
-The work profile runs Docker through [Lima](https://lima-vm.io/) rather than Docker Desktop. The `lima` rite manages the VM template at `~/.lima-templates/docker.yaml` and creates the rootful `docker` instance on first cast, which downloads an Ubuntu image and takes a few minutes. The `docker` rite creates a `lima-docker` context pointed at the VM's socket and owns the keys in `~/.docker/config.json` that select it and Homebrew's CLI plugins. The VM does not start at login; `limactl start docker` brings it up.
+The work profile runs Docker through [Lima](https://lima-vm.io/) rather than Docker Desktop. The `lima` rite manages the VM template at `~/.lima-templates/docker.yaml` and creates the rootless `docker` instance on first cast, which downloads an Ubuntu image and takes a few minutes. The `docker` rite creates a `lima-docker` context pointed at the VM's socket and owns the keys in `~/.docker/config.json` that select it and Homebrew's CLI plugins. The VM does not start at login; `limactl start docker` brings it up.
 
 ## Cheatsheets
 
