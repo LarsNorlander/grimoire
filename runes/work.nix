@@ -27,21 +27,4 @@
       "typora"
     ];
   };
-
-  # Start the Lima docker VM at login; Lima has no autostart of its own.
-  # RunAtLoad also fires on activation, and `limactl start NAME` *creates*
-  # NAME from the default template when it doesn't exist, so only start an
-  # instance rites/lima has already created from the managed template.
-  launchd.user.agents.lima-docker = {
-    serviceConfig = {
-      ProgramArguments = [
-        "/bin/sh"
-        "-c"
-        "test -f \"$HOME/.lima/docker/lima.yaml\" && exec /opt/homebrew/bin/limactl start docker"
-      ];
-      RunAtLoad = true;
-      StandardOutPath = "/tmp/lima-docker.launchd.log";
-      StandardErrorPath = "/tmp/lima-docker.launchd.log";
-    };
-  };
 }

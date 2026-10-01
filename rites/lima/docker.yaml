@@ -1,4 +1,5 @@
-# Docker host VM. Created by rites/lima with:
+# Shared Docker host VM for ad-hoc containers; projects with a real stack
+# get their own instance (cantrips/lima/vm-up). Created by rites/lima with:
 #   limactl start --name docker ~/.lima-templates/docker.yaml
 # vmType and disk are fixed at creation; changing them means
 # `limactl delete docker` and a recast (images and volumes inside are lost).
@@ -15,8 +16,8 @@ base:
 vmType: vz
 mountType: virtiofs
 
-cpus: 6
-memory: 8GiB
+cpus: 2
+memory: 4GiB
 disk: 100GiB
 
 # amd64 images at usable speed. Rosetta itself is installed by rites/lima.
