@@ -1,0 +1,7 @@
+{
+  "agent_servers": {
+    "claude-acp": {
+      "type": "registry"
+    }
+  }
+}
