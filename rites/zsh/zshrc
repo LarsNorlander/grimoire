@@ -22,6 +22,8 @@ fpath=("$HOME/.config/zsh/completions" $fpath)
 export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+# nvm replaces inherited version paths in place; ensure its Node wins over local shims.
+[[ -n "${NVM_BIN:-}" ]] && export PATH="$NVM_BIN:$PATH"
 
 source "$ZSH/oh-my-zsh.sh"
 
