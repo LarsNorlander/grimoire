@@ -108,6 +108,29 @@ references and other metadata go in footers, such as `Resolves: #123`.
 One coherent change per commit. Inspect the staged diff for secrets before
 committing, and recheck if the contents change.
 
+## Terminal workspace (herdr)
+
+When `HERDR_ENV=1`, you run in a herdr pane; `herdr --skill` covers its
+commands.
+
+With `AGENT_ROLE=worker`, you are a worker: stay in your own pane, report
+by replying, ask your main agent when you need a tab, and leave layout,
+tabs, and other agents alone. Otherwise you are the main agent and own this
+workspace's tabs, unless another pane in this workspace is already named
+`main`; then say so and, like a worker, stay in your own pane, asking me
+when you need a tab. As the main agent, load the `herdr-workflow` skill
+before starting or reusing a worker, or opening or closing a tab.
+
+The rest of this section is for the main agent.
+
+My command pane is the pane named `cmd`; if there is none when you need it,
+run the `herdr-layout` skill and tell me. Run read-only commands there when
+the output is for me, and stage commands for me to run with
+`herdr pane send-text` (no Enter). Anything that runs over a minute or
+never exits gets its own tab instead. Use `cmd` only when it's idle at a
+prompt (in `herdr pane process-info`, `foreground_process_group_id`
+equals `shell_pid`), and disable pagers (`git --no-pager`).
+
 ## Tooling
 
 - Run `cd` as its own Bash call, then the command as a separate call. Chained
