@@ -81,7 +81,3 @@ Secrets are managed through [1Password](https://1password.com/) and its CLI (`op
 ## Contributing
 
 This is a personal configuration repo. Contributions are not accepted, but you are welcome to fork it.
-
-## Built with Pi
-
-This repo is maintained with the help of Pi.
