@@ -44,11 +44,12 @@ A rite is a Python module, `rites/<tool>/rite.py`, whose `rite(ctx)` function re
 - `copy()` copies source files from the rite into `tome/`.
 - `write()` generates files into `tome/` from Python builders.
 - `link()` creates user-facing symlinks to `tome/`.
-- `patch()` owns selected keys inside a JSON file the machine otherwise owns. The rite holds a fragment; its leaf keys are merged into the live file in place, so this is the one operation that writes a real file instead of symlinking. Arrays are replaced whole, not merged.
+- `patch()` owns selected keys inside a JSON file the machine otherwise owns. The rite holds a fragment; its leaf keys are merged into the live file in place rather than symlinked. Arrays are replaced whole, not merged.
+- `install()` places a rite folder's files as real files under a live folder, for tools that refuse symlinks into their own folder (such as Herdr mods). Nothing is kept in `tome/`; the live files are the deployed state.
 - `hook()` performs necessary imperative setup.
 - `doc()` registers cheatsheet data for `grimoire scribe`.
 
-`tome/.manifest` records each built file's hash, the operation that produced it, and the symlinks pointing at it, so a full `cast` can prune files a rite stopped managing along with their links. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation. For `patch()` files, drift and accept look only at the owned keys; the rest of the file is free to change.
+`tome/.manifest` records each built file's hash, the operation that produced it, and the symlinks pointing at it, so a full `cast` can prune files a rite stopped managing along with their links. If a tool edits a managed file in `tome/`, `cast` skips it rather than overwriting it silently. Use `diff` to inspect the state, `cast --force` to rebuild from source, or `accept` to pull external edits back into `copy()`-managed rite sources. Generated `write()` files require manual reconciliation. For `patch()` files, drift and accept look only at the owned keys; the rest of the file is free to change. For `install()` files, drift and accept compare the live file itself; files in the live folder that the rite doesn't ship are left alone, and a file dropped from the rite is removed on a full `cast` unless it was edited since.
 
 Profile-specific rites use a header directive:
 

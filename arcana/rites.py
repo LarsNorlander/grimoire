@@ -6,11 +6,12 @@ Progress lines go to stdout the same way `RiteContext` reports its ops, so a
 cast reads as one stream.
 """
 
+import hashlib
 import importlib.util
 import sys
 from pathlib import Path
 
-from arcana.manifest import Manifest
+from arcana.manifest import Entry, Manifest
 from arcana.tome import RiteContext, RiteSkipped, parse_rite_profiles
 
 VALID_PROFILES = ("work", "personal")
@@ -170,7 +171,8 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
     Symlinks the manifest recorded for a pruned file are removed too, but
     only while they still point at that tome file — a link the user has
     since repointed is theirs. A patch() target is a file the machine owns,
-    so it is left in place and named in a note.
+    so it is left in place and named in a note. An install() file is
+    removed unless it was edited since it was installed.
     """
     tome_root = root / "tome"
     manifest = Manifest.load(tome_root)
@@ -197,7 +199,9 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
         entry = manifest.remove(key)
         for link in entry.links:
             _remove_link(Path(link), tome_file)
-        if entry.target:
+        if entry.kind == "install" and entry.target:
+            _remove_installed(entry)
+        elif entry.target:
             print(f"    left {entry.target} in place — its keys are the machine's now")
         if entry.kind is None and not entry.links:  # pre-v2 entry: links unknown
             untracked_links.append(tool)
@@ -229,6 +233,39 @@ def gc_manifest(root: Path, touched: set[str], built_tools: set[str]) -> None:
         )
 
     manifest.save()
+
+
+def _remove_installed(entry: Entry) -> None:
+    """Remove a file install() placed, unless it was edited since.
+
+    Then remove the folders that leaves empty, up to and including the
+    install root — never above it.
+    """
+    live = Path(entry.target)
+    if live.is_symlink() or not live.is_file():
+        return
+    if hashlib.sha256(live.read_bytes()).hexdigest() != entry.hash:
+        print(f"    kept {live} — edited since it was installed")
+        return
+    try:
+        live.unlink()
+        print(f"    removed {live}")
+    except OSError as e:
+        print(f"    (could not remove {live}: {e})", file=sys.stderr)
+        return
+    if not entry.root:
+        return
+    root = Path(entry.root)
+    folder = live.parent
+    while folder == root or root in folder.parents:
+        try:
+            folder.rmdir()  # fails if non-empty: that's where we stop
+        except OSError:
+            return
+        print(f"    removed empty {folder}")
+        if folder == root:
+            return
+        folder = folder.parent
 
 
 def _remove_link(link: Path, tome_file: Path) -> None:

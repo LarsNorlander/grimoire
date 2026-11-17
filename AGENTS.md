@@ -22,8 +22,9 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 - Use `ctx.write()` for generated/merged content; builders receive `profile`, `rite_dir`, and `grimoire_root`.
 - Use `ctx.link()` for managed symlinks and `ctx.hook()` only for necessary imperative setup. Give every hook an `unless=` guard that reports "already done", so casts stay idempotent and dry run can say what would run.
 - Use `ctx.patch()` when only some keys of a JSON file should be managed (the tool rewrites the rest itself). The fragment's leaves are owned; arrays are leaves. No `link()` — the target is written in place.
+- Use `ctx.install()` when a tool won't follow symlinks out of its own folder (Herdr mods): it installs a rite subfolder as real files, tracked per file. Pass `exclude=` globs for files the tool writes into that folder itself, so a stray local copy is never adopted as ours.
 - Profile gating belongs in rite header comments (`# profile: ...`), not in runtime branches.
-- `grimoire accept` round-trips `copy()` files and the owned keys of `patch()` files; generated files need manual reconciliation.
+- `grimoire accept` round-trips `copy()` and `install()` files and the owned keys of `patch()` files; generated files need manual reconciliation.
 
 ## Development notes
 

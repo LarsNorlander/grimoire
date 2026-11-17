@@ -30,6 +30,9 @@ class Persistence(unittest.TestCase):
         m.set_links("t/a", ["/home/b", "/home/a"])
         m.record("t/p.json", "h2", "patch")
         m.set_target("t/p.json", "/home/p.json")
+        m.record("t/mod/main.js", "h3", "install")
+        m.set_target("t/mod/main.js", "/live/mod/main.js")
+        m.set_root("t/mod/main.js", "/live/mod")
         m.save()
 
         again = Manifest.load(self.tome)
@@ -39,6 +42,15 @@ class Persistence(unittest.TestCase):
         )
         self.assertEqual(
             again.get("t/p.json"), Entry(hash="h2", kind="patch", target="/home/p.json")
+        )
+        self.assertEqual(
+            again.get("t/mod/main.js"),
+            Entry(
+                hash="h3",
+                kind="install",
+                target="/live/mod/main.js",
+                root="/live/mod",
+            ),
         )
         data = json.loads((self.tome / ".manifest").read_text())
         self.assertEqual(data["version"], 2)

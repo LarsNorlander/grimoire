@@ -6,6 +6,7 @@ import shutil
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from pathlib import Path
 
 from detect_secrets.core.secrets_collection import SecretsCollection
@@ -113,6 +114,21 @@ class PatchOp:
 
 
 @dataclass
+class InstallOp:
+    """Place a rite folder's files as real files under a live folder.
+
+    For tools that won't follow symlinks out of their own folder (Herdr
+    resolves a mod's modules by real path and refuses ones outside it).
+    Nothing is kept in tome: the live files are the deployed state, and
+    the manifest holds one baseline per file.
+    """
+
+    folder: str
+    target: str
+    exclude: tuple[str, ...] = ()
+
+
+@dataclass
 class DocOp:
     """Documentation content a rite offers about itself.
 
@@ -147,7 +163,9 @@ class RiteContext:
         self._tome_root = grimoire_root / "tome"
         self._manifest = Manifest.load(self._tome_root)
         self._dirty = False
-        self._ops: list[CopyOp | WriteOp | LinkOp | HookOp | PatchOp | DocOp] = []
+        self._ops: list[
+            CopyOp | WriteOp | LinkOp | HookOp | PatchOp | InstallOp | DocOp
+        ] = []
 
     def _manifest_key(self, filename: str) -> str:
         return f"{self.tool}/{filename}"
@@ -218,6 +236,23 @@ class RiteContext:
         """
         self._ops.append(PatchOp(filename, target))
 
+    def install(
+        self, folder: str, target: str, *, exclude: tuple[str, ...] = ()
+    ) -> None:
+        """Install every file under rite subfolder `folder` into `target`.
+
+        Files are written as real copies, not symlinks, for tools that refuse
+        links into their folder. Each file is tracked on its own: a live edit
+        is drift that cast skips and accept pulls back, and a file dropped
+        from the rite is removed on a full cast if it was never edited.
+        Files under `target` that the rite doesn't ship are left alone.
+        Hidden files in `folder` are not installed, nor files matching an
+        `exclude` glob (by name or by path inside `folder`): use it for files
+        the tool writes into its own folder, so a stray local copy can't be
+        adopted as ours.
+        """
+        self._ops.append(InstallOp(folder, target, tuple(exclude)))
+
     def doc(self, page: DocPage | Callable) -> None:
         """Register a cheatsheet page for this tool.
 
@@ -231,7 +266,7 @@ class RiteContext:
     # --- Introspection ---
 
     def registered_keys(self) -> set[str]:
-        """Manifest keys ({tool}/{filename}) registered via copy()/write()/patch()."""
+        """Manifest keys ({tool}/{filename}) of every file a file op manages."""
         keys: set[str] = set()
         for op in self._ops:
             if isinstance(op, CopyOp):
@@ -239,7 +274,35 @@ class RiteContext:
                     keys.add(self._manifest_key(f))
             elif isinstance(op, (WriteOp, PatchOp)):
                 keys.add(self._manifest_key(op.filename))
+            elif isinstance(op, InstallOp):
+                for filename, _, _ in self.install_files(op):
+                    keys.add(self._manifest_key(filename))
         return keys
+
+    def install_files(self, op: InstallOp) -> list[tuple[str, Path, Path]]:
+        """(manifest filename, rite source, live path) for each installed file.
+
+        The filename keeps the folder, `<folder>/<path inside it>`, so two
+        install()s in one rite can't collide. A missing folder lists nothing;
+        cast reports it as an error before GC can read that as "stopped
+        managing everything".
+        """
+        source_root = self.rite_dir / op.folder
+        live_root = Path(op.target).expanduser()
+        if not source_root.is_dir():
+            return []
+        files = []
+        for source in sorted(source_root.rglob("*")):
+            rel = source.relative_to(source_root)
+            if any(part.startswith(".") for part in rel.parts) or not source.is_file():
+                continue
+            if any(
+                fnmatch(rel.name, pattern) or fnmatch(rel.as_posix(), pattern)
+                for pattern in op.exclude
+            ):
+                continue
+            files.append((f"{op.folder}/{rel.as_posix()}", source, live_root / rel))
+        return files
 
     def registered_docs(self) -> list[DocPage]:
         """Resolve every registered DocOp into a DocPage.
@@ -283,6 +346,11 @@ class RiteContext:
                     self._exec_patch_accept(op.filename, op.target, dry_run=dry_run)
                 else:
                     self._exec_patch(op.filename, op.target, dry_run=dry_run)
+            elif isinstance(op, InstallOp):
+                if self.accepting:
+                    self._exec_install_accept(op, dry_run=dry_run)
+                else:
+                    self._exec_install(op, dry_run=dry_run)
         if not self.accepting and not dry_run:
             self._record_links()
         self._save_if_dirty()
@@ -530,3 +598,83 @@ class RiteContext:
         self._update_manifest(filename, "patch", live_digest)
         self._manifest.set_target(self._manifest_key(filename), str(dest))
         print(f"  accepted {self.tool}/{filename}")
+
+    # --- install(): real files in a live folder, tracked one by one ---
+
+    def _exec_install(self, op: InstallOp, dry_run: bool = False) -> None:
+        if not (self.rite_dir / op.folder).is_dir():
+            raise FileNotFoundError(
+                f"install() folder rites/{self.tool}/{op.folder} is missing"
+            )
+        live_root = Path(op.target).expanduser()
+        for filename, source, dest in self.install_files(op):
+            key = self._manifest_key(filename)
+            if dry_run:
+                print(f"  [dry-run] install {self.tool}/{filename} -> {dest}")
+                continue
+            if dest.is_symlink():
+                print(f"  ERROR {dest} is a symlink — not installing through it")
+                continue
+            digest = _hash_file(source)
+            if dest.exists():
+                live = _hash_file(dest)
+                baseline = self._manifest.hash(key)
+                if live == digest:
+                    # Already in place: adopt it quietly, as link() does.
+                    if baseline != digest:
+                        self._record_install(key, digest, dest, live_root)
+                    continue
+                if not self.force and baseline is None:
+                    print(
+                        f"  ERROR {dest} exists and wasn't installed by grimoire"
+                        f" — skipping (use --force to overwrite)"
+                    )
+                    continue
+                if not self.force and live != baseline:
+                    print(
+                        f"  SKIPPED {dest}"
+                        f" — externally modified (use --force to overwrite)"
+                    )
+                    continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            # Write beside the target and rename over it, so a watching tool
+            # never loads a half-written file. Hidden, so Herdr ignores it.
+            staging = dest.with_name(f".{dest.name}.grimoire")
+            shutil.copy2(source, staging)
+            staging.replace(dest)
+            self._record_install(key, digest, dest, live_root)
+            print(f"  installed {dest}")
+
+    def _record_install(self, key: str, digest: str, dest: Path, root: Path) -> None:
+        self._manifest.record(key, digest, "install")
+        self._manifest.set_target(key, str(dest))
+        self._manifest.set_root(key, str(root))
+        self._dirty = True
+
+    def _exec_install_accept(self, op: InstallOp, dry_run: bool = False) -> None:
+        for filename, source, dest in self.install_files(op):
+            key = self._manifest_key(filename)
+            baseline = self._manifest.hash(key)
+            if baseline is None:
+                continue  # never installed: nothing live to pull back
+            if dest.is_symlink() or not dest.is_file():
+                print(f"  {self.tool}/{filename}: {dest} missing — skipping")
+                continue
+            if _hash_file(dest) == baseline:
+                print(f"  {self.tool}/{filename}: not modified — skipping")
+                continue
+            if dry_run:
+                print(f"  [dry-run] accept {dest} -> rites/{self.tool}/{filename}")
+                continue
+            if secrets := _scan_for_secrets(dest):
+                print(
+                    f"  ERROR {self.tool}/{filename}: potential secrets detected"
+                    f" — refusing to accept"
+                )
+                for s in secrets:
+                    print(f"    line {s['line_number']}: {s['type']}")
+                sys.exit(1)
+            shutil.copy2(dest, source)
+            live_root = Path(op.target).expanduser()
+            self._record_install(key, _hash_file(source), dest, live_root)
+            print(f"  accepted {self.tool}/{filename}")

@@ -4,6 +4,9 @@ Compares three edges of the rite/tome/manifest state graph:
   - drift:  tome vs. manifest hashes       (what's changed on disk since last cast)
   - cast:   tome vs. fresh rebuild         (what `grimoire cast` would change)
   - accept: tome vs. rite source           (what `--accept` would pull back)
+
+patch() and install() have no tome copy to compare: the live target stands
+in for it on every edge.
 """
 
 import difflib
@@ -14,13 +17,14 @@ from pathlib import Path
 
 from arcana import patch as patch_mod
 from arcana.manifest import Manifest
-from arcana.tome import CopyOp, PatchOp, RiteContext, WriteOp
+from arcana.tome import CopyOp, InstallOp, PatchOp, RiteContext, WriteOp
 
 
 class Kind(StrEnum):
     COPY = "copy"
     WRITE = "write"
     PATCH = "patch"
+    INSTALL = "install"
 
 
 class Direction(StrEnum):
@@ -52,12 +56,11 @@ class FilePlan:
     filename: str
     kind: Kind
     rite_source: Path | None  # None for write()
-    tome_path: Path
+    tome_path: Path  # install(): the live file, which has no tome copy
     planned_content: bytes | None  # None if write() and --build not set
     # patch(): the owned keys extracted from the live target, canonicalized.
-    # Stands in for the tome file in every comparison — the tome copy only
-    # remembers which keys were applied. None means the target is missing
-    # or unreadable.
+    # install(): the live file's bytes. Stands in for the tome file in every
+    # comparison. None means the target is missing or unreadable.
     live_content: bytes | None = None
 
     @property
@@ -141,6 +144,20 @@ def plan_rite(ctx: RiteContext, build: bool) -> list[FilePlan]:
                     live_content=_live_patch_content(ctx, op),
                 )
             )
+        elif isinstance(op, InstallOp):
+            for filename, src, live in ctx.install_files(op):
+                readable = live.is_file() and not live.is_symlink()
+                plans.append(
+                    FilePlan(
+                        tool=ctx.tool,
+                        filename=filename,
+                        kind=Kind.INSTALL,
+                        rite_source=src,
+                        tome_path=live,
+                        planned_content=src.read_bytes(),
+                        live_content=live.read_bytes() if readable else None,
+                    )
+                )
         # LinkOp and HookOp have no file-level diff semantics.
     return plans
 
@@ -176,7 +193,7 @@ def _live_patch_content(ctx: RiteContext, op: PatchOp) -> bytes | None:
 
 
 def compute_diff(plan: FilePlan, manifest: Manifest, build: bool) -> DiffResult:
-    if plan.kind == Kind.PATCH:
+    if plan.kind in (Kind.PATCH, Kind.INSTALL):
         tome_content = plan.live_content
     else:
         tome_content = plan.tome_path.read_bytes() if plan.tome_path.exists() else None
@@ -260,10 +277,31 @@ _PATCH_REASONS = {
 }
 
 
+# install() compares the live file itself.
+_INSTALL_REASONS = {
+    (Direction.DRIFT, Status.MODIFIED): "live file changed since last cast",
+    (Direction.DRIFT, Status.ADDED): "live file present but not installed by grimoire",
+    (Direction.DRIFT, Status.DELETED): "live file missing — was installed",
+    (Direction.CAST, Status.MODIFIED): "rite source differs from live file",
+    (Direction.CAST, Status.ADDED): "would be installed on next cast",
+    (Direction.ACCEPT, Status.MODIFIED): "live file differs from rite source",
+}
+
+_KIND_REASONS = {Kind.PATCH: _PATCH_REASONS, Kind.INSTALL: _INSTALL_REASONS}
+
+
 def _reason(kind: Kind, direction: Direction, status: Status) -> str:
-    if kind == Kind.PATCH and (direction, status) in _PATCH_REASONS:
-        return _PATCH_REASONS[(direction, status)]
+    specific = _KIND_REASONS.get(kind, {})
+    if (direction, status) in specific:
+        return specific[(direction, status)]
     return _REASONS.get((direction, status), "")
+
+
+def _deployed_label(plan: FilePlan) -> str:
+    """How diffs name the deployed side: its tome path, or the live file."""
+    if plan.kind == Kind.INSTALL:
+        return str(plan.tome_path)
+    return f"tome/{plan.tool}/{plan.filename}"
 
 
 def format_summary(results: list[DiffResult], selected: set[Direction]) -> str:
@@ -327,7 +365,7 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
                 _unified_diff(
                     r.tome_content,
                     r.plan.planned_content,
-                    f"tome/{r.plan.tool}/{r.plan.filename}",
+                    _deployed_label(r.plan),
                     f"rebuilt {r.plan.tool}/{r.plan.filename}",
                 )
             )
@@ -345,7 +383,7 @@ def format_full(results: list[DiffResult], selected: set[Direction]) -> str:
                     source_bytes,
                     r.tome_content,
                     f"rites/{r.plan.tool}/{r.plan.filename}",
-                    f"tome/{r.plan.tool}/{r.plan.filename}",
+                    _deployed_label(r.plan),
                 )
             )
 

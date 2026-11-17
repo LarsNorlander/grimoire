@@ -190,6 +190,54 @@ class Matrix(unittest.TestCase):
         r = self.patch_case(fragment=f, applied=f, live=None, manifest_of=f)
         self.check(r, S.DELETED, S.ADDED, S.CLEAN, conflict=True)
 
+    # -- install() --------------------------------------------------------
+
+    def install_case(self, *, source, live, manifest_of):
+        """`live` is the installed file; there is no tome copy."""
+        src = self.rite_dir / "m" / "main.js"
+        src.parent.mkdir()
+        src.write_bytes(source)
+        live_dir = Path(self.tmp.name, "live")
+        if live is not None:
+            live_dir.mkdir()
+            (live_dir / "main.js").write_bytes(live)
+        manifest = self.manifest(
+            {"t/m/main.js": self.sha(manifest_of)} if manifest_of is not None else {}
+        )
+        plan = self.plan(lambda c: c.install("m", str(live_dir)))
+        return diff.compute_diff(plan, manifest, build=False)
+
+    def test_install_clean(self):
+        r = self.install_case(source=b"v1", live=b"v1", manifest_of=b"v1")
+        self.check(r, S.CLEAN, S.CLEAN, S.CLEAN)
+
+    def test_install_live_edit(self):
+        r = self.install_case(source=b"v1", live=b"edited", manifest_of=b"v1")
+        self.check(r, S.MODIFIED, S.MODIFIED, S.MODIFIED, conflict=True)
+
+    def test_install_source_edit_pending_cast(self):
+        r = self.install_case(source=b"v2", live=b"v1", manifest_of=b"v1")
+        self.check(r, S.CLEAN, S.MODIFIED, S.MODIFIED)
+
+    def test_install_never_cast(self):
+        r = self.install_case(source=b"v1", live=None, manifest_of=None)
+        self.check(r, S.CLEAN, S.ADDED, S.CLEAN)
+
+    def test_install_live_deleted(self):
+        r = self.install_case(source=b"v1", live=None, manifest_of=b"v1")
+        self.check(r, S.DELETED, S.ADDED, S.CLEAN, conflict=True)
+
+    def test_install_full_diff_names_the_live_file(self):
+        r = self.install_case(source=b"v2\n", live=b"v1\n", manifest_of=b"v1\n")
+        text = diff.format_full([r], set(D))
+        live = Path(self.tmp.name, "live", "main.js")
+        self.assertIn("+++ rebuilt t/m/main.js", text)
+        self.assertIn(f"--- {live}", text)
+        self.assertNotIn("tome/", text)
+        summary = diff.format_summary([r], set(D))
+        self.assertIn("t/m/main.js  [install()]", summary)
+        self.assertIn("rite source differs from live file", summary)
+
     # -- formatting ------------------------------------------------------
 
     def test_summary_labels_kind_and_counts_conflicts(self):

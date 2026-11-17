@@ -8,7 +8,10 @@ One entry per managed file, keyed `tool/filename`:
 - `kind`   — the op that produced it: copy, write, or patch.
 - `links`  — symlinks a rite created to this tome file, so GC can remove
              them when the file is pruned instead of leaving them dangling.
-- `target` — patch() only: the live file the fragment was merged into.
+- `target` — patch(): the live file the fragment was merged into.
+             install(): the live file itself; its hash is the baseline.
+- `root`   — install() only: the live folder the file was installed under,
+             so GC can remove folders it emptied without climbing past it.
 
 The file is JSON at `tome/.manifest`. The pre-v2 format was one `key=hash`
 line per file; it is read transparently and rewritten as v2 on the next save.
@@ -29,6 +32,7 @@ class Entry:
     kind: str | None = None
     links: list[str] = field(default_factory=list)
     target: str | None = None
+    root: str | None = None
 
     def to_dict(self) -> dict:
         out: dict = {"hash": self.hash}
@@ -38,6 +42,8 @@ class Entry:
             out["links"] = sorted(self.links)
         if self.target:
             out["target"] = self.target
+        if self.root:
+            out["root"] = self.root
         return out
 
     @classmethod
@@ -47,6 +53,7 @@ class Entry:
             kind=d.get("kind"),
             links=list(d.get("links", [])),
             target=d.get("target"),
+            root=d.get("root"),
         )
 
 
@@ -117,6 +124,10 @@ class Manifest:
     def set_target(self, key: str, target: str) -> None:
         if key in self._entries:
             self._entries[key].target = target
+
+    def set_root(self, key: str, root: str) -> None:
+        if key in self._entries:
+            self._entries[key].root = root
 
     def remove(self, key: str) -> Entry:
         """Drop an entry and return it. Missing keys raise KeyError."""

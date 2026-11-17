@@ -3,6 +3,7 @@
 Run with: uv run python -m unittest
 """
 
+import hashlib
 import io
 import tempfile
 import unittest
@@ -170,6 +171,53 @@ class ManifestGC(Root):
         self.assertTrue(target.exists())
         self.assertIn(f"left {target} in place", out)
         self.assertNotIn("dangling", out)
+
+    def test_install_removes_unedited_files_and_emptied_folders(self):
+        self.add_rite("keep", "x")
+        live = self.root / "live" / "m"
+        (live / "lib").mkdir(parents=True)
+        main, util = live / "main.js", live / "lib" / "util.js"
+        main.write_text("one\n")
+        util.write_text("two\n")
+
+        def entry(f: Path) -> Entry:
+            digest = hashlib.sha256(f.read_bytes()).hexdigest()
+            return Entry(hash=digest, kind="install", target=str(f), root=str(live))
+
+        self.manifest(
+            **{"gone/m/main.js": entry(main), "gone/m/lib/util.js": entry(util)}
+        )
+        out = self.gc(touched=set(), built={"keep"})
+        self.assertFalse(live.exists(), "emptied install root is removed")
+        self.assertTrue(live.parent.exists(), "never climbs above the root")
+        self.assertIn(f"removed {main}", out)
+        self.assertNotIn("dangling", out)
+
+    def test_install_keeps_edited_files_and_foreign_files(self):
+        self.add_rite("keep", "x")
+        live = self.root / "live" / "m"
+        live.mkdir(parents=True)
+        edited, shipped = live / "edited.js", live / "shipped.js"
+        edited.write_text("edited\n")
+        shipped.write_text("as installed\n")
+        (live / "app-written.d.ts").write_text("theirs\n")
+        digest = hashlib.sha256(b"as installed\n").hexdigest()
+        self.manifest(
+            **{
+                "gone/m/edited.js": Entry(
+                    hash="h", kind="install", target=str(edited), root=str(live)
+                ),
+                "gone/m/shipped.js": Entry(
+                    hash=digest, kind="install", target=str(shipped), root=str(live)
+                ),
+            }
+        )
+        out = self.gc(touched=set(), built={"keep"})
+        self.assertTrue(edited.exists())
+        self.assertIn(f"kept {edited}", out)
+        self.assertFalse(shipped.exists())
+        self.assertTrue((live / "app-written.d.ts").exists())
+        self.assertEqual(self.keys(), set())
 
 
 if __name__ == "__main__":
