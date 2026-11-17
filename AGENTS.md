@@ -32,4 +32,5 @@ Grimoire is a personal macOS-only machine/config manager. Keep changes focused a
 - Lint and format with ruff: `uv run ruff check .` and `uv run ruff format .` (config in `pyproject.toml`; the rule set is deliberate, extend it there rather than adding `noqa`). Run the tests with `uv run python -m unittest discover -s tests`. They drive the CLI against a temp root via the `GRIMOIRE_ROOT` and `GRIMOIRE_PROFILE_FILE` env overrides; never against `~/.grimoire`.
 - Scripts (`grimoire`, cantrips) use shebangs, have no file extensions, and are executable. Rites are modules, not scripts.
 - Keep README aligned with user-visible behavior changes, but avoid duplicating `--help` output or exhaustive file lists.
+- Before proposing a commit, run `uv run ruff format .`, `uv run ruff check .`, and `uv run python -m unittest discover -s tests`.
 - Before committing, check staged changes for secrets, credentials, tokens, and private keys.
