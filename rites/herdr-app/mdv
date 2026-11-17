@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# mdv: show a Markdown file rendered in Herdr, in a new tab or a split.
+set -euo pipefail
+
+usage() {
+  echo "usage: mdv [-s] FILE" >&2
+  echo "  -s  open in a split beside the focused pane instead of a new tab" >&2
+  exit 2
+}
+
+split=false
+while getopts ":sh" opt; do
+  case $opt in
+    s) split=true ;;
+    *) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+[ $# -eq 1 ] || usage
+
+file=$1
+if [ ! -f "$file" ]; then
+  echo "mdv: no such file: $file" >&2
+  exit 1
+fi
+abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+props=$(jq -cn --arg file "$abs" '{file: $file}')
+
+# herdr-app prints created IDs, or {"error": ...} and exits 1.
+if $split; then
+  out=$(herdr-app do pane.split --direction right --mod md --props "$props") ||
+    { echo "mdv: $out" >&2; exit 1; }
+else
+  out=$(herdr-app do tab.new --mod md --props "$props" --name "$(basename "$abs")") ||
+    { echo "mdv: $out" >&2; exit 1; }
+fi
