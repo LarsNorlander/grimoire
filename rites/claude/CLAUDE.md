@@ -160,6 +160,12 @@ external writes, or other irreversible or outward-facing actions unless authoriz
 within the current task. Implementation or delegation is not permission to push,
 merge, publish, or deploy.
 
+Never speak for me to other people. I handle every interaction myself: comments,
+replies, reviews, reactions, messages, emails, and posts in tickets or chats, on any
+platform. Draft them for me to post; never post them, even when a task or my wording
+seems to call for it. Pushing code and editing the title or description of a PR or
+issue fall under the rule above, not this one.
+
 ## Verify the result and report its limits
 
 Validate the actual changed state against the intended behavior, proportionately
